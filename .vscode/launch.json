@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "GDCA: Run Backtest (CI/CD Local)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/run_backtest.py",
+            "console": "integratedTerminal",
+            "env": {
+                "SYMBOL": "BTC/USD",
+                "DCA_AMOUNT": "1000.0",
+                "LOT_SIZE": "0.001",
+                "TAKE_PROFIT_PCT": "0.05",
+                "STEP_DROP_PCT": "0.01",
+                "MAX_POSITIONS": "10",
+                "VENUE": "BITSTAMP"
+            },
+            "justMyCode": true
+        },
+        {
+            "name": "GDCA: Download Data (CI/CD Local)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/download_data.py",
+            "console": "integratedTerminal",
+            "env": {
+                "DATA_SYMBOL": "BTC/USD",
+                "DATA_VENUE": "BITSTAMP",
+                "DATA_TIMEFRAME": "1d",
+                "DATA_START_DATE": "2020-01-01",
+                "DATA_TYPE": "bar"
+            },
+            "justMyCode": true
+        }
+    ]
+}

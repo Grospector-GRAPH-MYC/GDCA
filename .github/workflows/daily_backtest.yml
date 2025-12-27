@@ -1,0 +1,67 @@
+name: Daily GDCA Backtest
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed for pushing to gh-pages if we add that later
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Download Data
+        env:
+          DATA_SYMBOL: ${{ secrets.DATA_SYMBOL || 'BTC/USD' }}
+          DATA_VENUE: ${{ secrets.DATA_VENUE || 'BITSTAMP' }}
+          DATA_TIMEFRAME: ${{ secrets.DATA_TIMEFRAME || '1d' }}
+          DATA_START_DATE: ${{ secrets.DATA_START_DATE || '2020-01-01' }} # Default to shorter window for CI?
+        run: poetry run python scripts/download_data.py
+
+      - name: Run Backtest
+        env:
+          # Strategy Config
+          SYMBOL: ${{ secrets.SYMBOL || 'BTCUSDT' }}
+          DCA_AMOUNT: ${{ secrets.DCA_AMOUNT || '1000.0' }}
+          LOT_SIZE: ${{ secrets.LOT_SIZE || '0.001' }}
+          TAKE_PROFIT_PCT: ${{ secrets.TAKE_PROFIT_PCT || '0.05' }}
+          STEP_DROP_PCT: ${{ secrets.STEP_DROP_PCT || '0.01' }}
+          MAX_POSITIONS: ${{ secrets.MAX_POSITIONS || '10' }}
+          
+          # Zone Config (Optional overrides from Secrets)
+          START_SHORT_ZONE: ${{ secrets.START_SHORT_ZONE }}
+          END_SHORT_ZONE: ${{ secrets.END_SHORT_ZONE }}
+          START_SELL_ZONE: ${{ secrets.START_SELL_ZONE }}
+          END_SELL_ZONE: ${{ secrets.END_SELL_ZONE }}
+          START_NORMAL_ZONE: ${{ secrets.START_NORMAL_ZONE }}
+          END_NORMAL_ZONE: ${{ secrets.END_NORMAL_ZONE }}
+          START_BUY_ZONE: ${{ secrets.START_BUY_ZONE }}
+          END_BUY_ZONE: ${{ secrets.END_BUY_ZONE }}
+          START_LONG_ZONE: ${{ secrets.START_LONG_ZONE }}
+          END_LONG_ZONE: ${{ secrets.END_LONG_ZONE }}
+        run: poetry run python scripts/run_backtest.py
+
+      - name: Upload Backtest Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-report
+          path: backtest_result.html

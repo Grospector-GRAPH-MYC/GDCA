@@ -1,0 +1,580 @@
+//@version=5
+strategy(title="Grospector DCA V.4", shorttitle="GDCA V.4",precision=7, overlay=true,initial_capital=1000000)
+
+//------------------------------ MA ------------------------------
+
+len = input.int(title="MA Period", defval=365*4)
+strongLen = input.int(title="Strong Period from MA Period", defval=365)
+manualShortMulti = input.float(title="Short Multi", defval=2.618,options=[5, 4, 3.618, 3.414, 3.272, 3, 2.618, 2.414, 2.272, 2, 1.618, 1.414, 1.272, 1, 0.786, 0.618, 0.5, 0.382, 0.236],tooltip="Recommend > 2")
+manualStrongSellMulti = input.float(title="Strong Sell Multi", defval=4,options=[5, 4, 3.618, 3.414, 3.272, 3, 2.618, 2.414, 2.272, 2, 1.618, 1.414, 1.272, 1, 0.786, 0.618, 0.5, 0.382, 0.236],tooltip="Recommend > 2")
+manualSellMulti = input.float(title="Sell Multi", defval=2.272,options=[5, 4, 3.618, 3.414, 3.272, 3, 2.618, 2.414, 2.272, 2, 1.618, 1.414, 1.272, 1, 0.786, 0.618, 0.5, 0.382, 0.236],tooltip="Recommend < 2")
+manualBuyMulti = input.float(title="Buy Multi", defval=1,options=[5, 4, 3.618, 3.414, 3.272, 3, 2.618, 2.414, 2.272, 2, 1.618, 1.414, 1.272, 1, 0.786, 0.618, 0.5, 0.382, 0.236],tooltip="Recommend = 1") 
+manualStrongBuyMulti = input.float(title="Strong Buy Multi", defval=0.786,options=[5, 4, 3.618, 3.414, 3.272, 3, 2.618, 2.414, 2.272, 2, 1.618, 1.414, 1.272, 1, 0.786, 0.618, 0.5, 0.382, 0.236],tooltip="Recommend > 0.5") 
+manualLongMulti = input.float(title="Long Multi", defval=0.382,options=[5, 4, 3.618, 3.414, 3.272, 3, 2.618, 2.414, 2.272, 2, 1.618, 1.414, 1.272, 1, 0.786, 0.618, 0.5, 0.382, 0.236],tooltip="Recommend < 0.5")
+price = input.source(title="Price", defval=close)
+//gdcaMode = input.int(title='GDCA Mode',tooltip="1 = Manual Set Multi, 2 = Auto Set Multi",defval = 1,display = display.none)
+gdcaMode = 1
+zoneSwitch = input.int(title='Turn on assistive zone',tooltip="1 = all, 2 = chart only, 3 = data only,4 = none", defval=2, options = [1, 2, 3, 4],display = display.none)
+labelSwitch = input.bool(title='Turn on assistive text', defval=true,display = display.none)
+predictFuturePrice = input.bool(title='Turn on predict future price', defval=true,display = display.none)
+
+cdcActionSwitch= input.bool(title = "Turn on CDC Action Zone",group = "CDC Action Zone",defval = true,display = display.none)
+cdcActionSourcePrice= input.source(title = "Source Data",group = "CDC Action Zone",defval = close,display = display.none)
+cdcActionFast = input.int(title = "Fast EMA Period",group = "CDC Action Zone",defval = 12,display = display.none)
+cdcActionSlow = input.int(title = "Slow EMA Period",group = "CDC Action Zone",defval = 26,display = display.none)
+
+strategySwitch = input.bool(title='Turn on strategy',group = "Strategy", defval=true,display = display.none)
+useReserve = input.bool(title='Turn on use reserve',group = "Strategy", defval=true,display = display.none)
+useDerivative = input.bool(title='Turn on use derivative',group = "Strategy", defval=true,display = display.none)
+DCA = input.int(title="DCA Plan (USD)",group = "Strategy",defval=1000,display = display.none)
+WaitingDCA = input.float(title="Waiting DCA (USD)",group = "Strategy",defval=0,display = display.none)
+Invested = input.int(title="Invested (USD)",group = "Strategy",defval=0,display = display.none)
+startYear_input = input(2011, title="Start Year",group = "Strategy",display = display.none)
+startMonth_input = input(8, title="Start Month",group = "Strategy",display = display.none)
+startDay_input = input(18, title="Start Day",group = "Strategy",display = display.none)
+endYear_input = input(2023, title="End Year",group = "Strategy",display = display.none)
+endMonth_input = input(12, title="End Month",group = "Strategy",display = display.none)
+endDay_input = input(31, title="End Day",group = "Strategy",display = display.none)
+
+useHalving = input.bool(title='Turn on use halvings',group = "Halving", defval=true,display = display.none)
+seperateDayOfMonth = input.int(title='Seperate day of month',tooltip="0 = none, 1-31 day",group = "Halving", defval=28,minval=0,maxval=31,display = display.none)
+extendHalfOfHalving = input.int(title='Extend half of halving date',group = "Halving", defval=200,minval=0,display = display.none)
+
+StartShortZone = input.int(title="Start Short Zone %",defval=100,group = "Zone",display = display.none)
+EndShortZone = input.int(title="Start Short Zone %",defval=0,minval=0,group = "Zone",display = display.none)
+StartSellZone = input.int(title="Start Sell Zone %",defval=100,minval=0,group = "Zone",maxval=100,display = display.none)
+EndSellZone = input.int(title="End Sell Zone %",defval=0,minval=0,maxval=100,group = "Zone",display = display.none)
+StartNormalZone = input.int(title="Start Normal Zone %",defval=0,minval=0,maxval=100,group = "Zone",display = display.none)
+EndNormalZone = input.int(title="End Normal Zone %",defval=100,minval=0,maxval=100,group = "Zone",display = display.none)
+StartBuyZone = input.int(title="Start Buy Zone %",defval=100,minval=0,group = "Zone",display = display.none)
+EndBuyZone = input.int(title="End Buy Zone %",defval=200,minval=0,group = "Zone",display = display.none)
+StartLongZone = input.int(title="Start Long Zone %",defval=0,minval=0,group = "Zone",display = display.none)
+EndLongZone = input.int(title="End Long Zone %",defval=100,minval=0,group = "Zone",display = display.none)
+
+bgcolor(dayofmonth == seperateDayOfMonth ? color.new(color.red, 70) : na,display=seperateDayOfMonth > 0 and seperateDayOfMonth < 32?display.all:display.none)
+bar = barstate.isnew
+last_bar = barstate.islastconfirmedhistory
+
+var int firstTimeStampMA = na
+var int firstTimeStampMAStrong = na
+var int firstIndexMA = na
+var int firstIndexStrong = na
+
+var float firstShortPricePredict = na
+var float firstStrongSellPricePredict = na
+var float firstSellPricePredict = na
+var float firstBuyPricePredict = na
+var float firstStrongBuyPricePredict = na
+var float firstLongPricePredict = na
+
+var float shortMulti = 1.0
+var float strongSellMulti = 1.0
+var float sellMulti = 1.0
+var float buyMulti = 1.0
+var float strongBuyMulti = 1.0
+var float longMulti = 1.0
+
+var float highest = na
+var int highestIndex = 0
+var float lowest = na
+var int lowestIndex = 0
+
+if (not na(high) and (na(highest) or high > highest))
+    highest := high
+    highestIndex := bar_index
+
+if (not na(low) and (na(lowest) or low < lowest))
+    lowest := low
+    lowestIndex := bar_index
+
+maAuto = ta.sma(price, len/2)
+
+var float maAutoFirst = na
+var float maAutoFirstMAStrong = na
+
+maAutoFirst := na(maAutoFirst) and not na(maAuto) ? maAuto : maAutoFirst
+maAutoFirstMAStrong := na(firstIndexStrong) ? maAuto : maAutoFirstMAStrong
+
+// GDCA Mode 
+if gdcaMode == 1
+    shortMulti := manualShortMulti
+    strongSellMulti := manualStrongSellMulti
+    sellMulti := manualSellMulti
+    buyMulti := manualBuyMulti
+    strongBuyMulti := manualStrongBuyMulti
+    longMulti := manualLongMulti
+else if gdcaMode == 2
+    highestAuto = highest > maAutoFirstMAStrong ? highest : maAutoFirstMAStrong
+    highestStrongAuto = highest > maAutoFirstMAStrong ? maAutoFirstMAStrong : maAutoFirst
+
+    shortMulti := (highestAuto - highestStrongAuto) / (firstIndexStrong - highestIndex)
+    // strongSellMulti := manualStrongSellMulti
+    // sellMulti := manualSellMulti
+    // buyMulti := manualBuyMulti
+    // strongBuyMulti := manualStrongBuyMulti
+    // longMulti := manualLongMulti
+
+//Sell
+lenSell = len
+srcSell = price
+offsetSell = 0
+
+maSell = ta.sma(srcSell*sellMulti, lenSell)
+displayZone = zoneSwitch == 1?display.all:zoneSwitch == 2?display.pane:zoneSwitch == 3?display.data_window:display.none
+derivertiveDisplayZone = useDerivative ? displayZone:display.none
+plot(maSell, color=#f2364680, title="Sell", offset=offsetSell, linewidth=3,display=displayZone)
+
+//Strong Sell
+offsetStrongSell = 0
+maStrongSell = ta.sma(maSell*strongSellMulti, strongLen)
+//plot(maStrongSell, color=#b2283380, title="Strong Sell", offset=offsetStrongSell, linewidth=6,display=displayZone)
+
+//Short
+maShort = maStrongSell * shortMulti
+plot(maShort, color=#80192280, title="Short", linewidth=6,display=derivertiveDisplayZone)
+
+//Buy
+lenBuy = len
+srcBuy = price
+offsetBuy = 0
+//maBuy = ta.sma(srcBuy*buyMulti, lenBuy)
+maBuy = ta.sma(close*buyMulti, len)
+plot(maBuy, color=#4caf5080, title="Buy", offset=offsetBuy, linewidth=3,display=displayZone)
+
+//Strong Buy
+lenStrongBuy = strongLen
+offsetStrongBuy = 0
+maStrongBuy = ta.sma(maBuy*strongBuyMulti, lenStrongBuy)
+//plot(maStrongBuy, color=#1b5e1f80, title="Strong Buy", offset=offsetStrongBuy,linewidth=6,display=displayZone)
+
+//Long
+maLong = maStrongBuy * longMulti
+//plot(maLong, color=#00332a80, title="Long", linewidth=6,display=derivertiveDisplayZone)
+
+//index 
+indexDerivertive = 0
+indexDerivertive := maLong > 0 or maShort > 0 ? indexDerivertive[1]+1 : 0
+indexStrong = 0
+indexStrong := maStrongBuy > 0 or maStrongSell > 0 ? indexStrong[1]+1 : 0
+index = 0
+index := maBuy > 0 or maSell > 0 ? index[1]+1 : 0
+
+if na(maBuy) == false and na(firstTimeStampMA) == true
+    firstTimeStampMA := time
+    firstIndexMA := bar_index
+    firstSellPricePredict := maSell
+    firstBuyPricePredict := maBuy
+if na(maStrongBuy) == false and na(firstTimeStampMAStrong) == true
+    firstTimeStampMAStrong := time
+    firstIndexStrong := bar_index
+    firstShortPricePredict := maShort
+    firstStrongSellPricePredict := maStrongSell
+    firstStrongBuyPricePredict := maStrongBuy
+    firstLongPricePredict := maLong
+
+//--------------------------------------- CDC Action Zone -------------------------------------------
+FastMA = ta.ema(cdcActionSourcePrice, cdcActionFast)
+SlowMA = ta.ema(cdcActionSourcePrice, cdcActionSlow)
+
+cdcActionZoneBull = FastMA > SlowMA
+cdcActionZoneBear = FastMA < SlowMA
+
+Green = cdcActionZoneBull and cdcActionSourcePrice > FastMA  // Buy
+Blue = cdcActionZoneBear and cdcActionSourcePrice > FastMA and cdcActionSourcePrice > SlowMA  //Pre Buy 2
+LBlue = cdcActionZoneBear and cdcActionSourcePrice > FastMA and cdcActionSourcePrice < SlowMA  //Pre Buy 1
+
+Red = cdcActionZoneBear and cdcActionSourcePrice < FastMA  // Sell
+Orange = cdcActionZoneBull and cdcActionSourcePrice < FastMA and cdcActionSourcePrice < SlowMA  // Pre Sell 2
+Yellow = cdcActionZoneBull and cdcActionSourcePrice < FastMA and cdcActionSourcePrice > SlowMA  // Pre Sell 1
+
+cdcActionZoneColor = Green ? color.green :
+ Blue ? color.blue : 
+ LBlue ? color.aqua :
+ Red ? color.red : 
+ Orange ? color.orange : 
+ Yellow ? color.yellow : 
+ color.black
+barcolor(color=cdcActionSwitch ? cdcActionZoneColor : na)
+
+FastL = plot(cdcActionSwitch ? FastMA : na, 'Fast EMA', color=color.new(color.red, 0), style = plot.style_line,linewidth = 2,display = display.pane)
+SlowL = plot(cdcActionSwitch ? SlowMA : na, 'Slow EMA', color=color.new(color.blue, 0), style = plot.style_line,linewidth = 2,display = display.pane)
+fillcolor = cdcActionZoneBull ? color.new(color.green,90) : cdcActionZoneBear ? color.new(color.red,90) : color.new(color.black,90) // fillcolor = Bull ? color.green : Bear ? color.red : color.black
+fill(FastL, SlowL, fillcolor) // fill(FastL, SlowL, fillcolor, transp=90)
+//---------------------------------------------------------------------------------------------------
+
+//channel
+higherSell = maSell > maStrongSell ? maSell : maStrongSell
+lowerSell = maSell < maStrongSell ? maSell : maStrongSell
+higherBuy = maBuy > maStrongBuy ? maBuy : maStrongBuy
+lowerBuy = maBuy < maStrongBuy ? maBuy : maStrongBuy
+
+gapShort = (maShort - higherSell)/10
+gapSell = (higherSell - lowerSell)/10
+gapNormal = (lowerSell - higherBuy)/10
+gapBuy = (higherBuy - maStrongBuy)/10
+gapLong = (maStrongBuy - maLong)/10
+
+channelShort1 = maShort - (gapShort*1)
+channelShort2 = maShort - (gapShort*2)
+channelShort3 = maShort - (gapShort*3)
+channelShort4 = maShort - (gapShort*4)
+channelShort5 = maShort - (gapShort*5)
+channelShort6 = maShort - (gapShort*6)
+channelShort7 = maShort - (gapShort*7)
+channelShort8 = maShort - (gapShort*8)
+channelShort9 = maShort - (gapShort*9)
+channelShort10 = maShort - (gapShort*10)
+
+plot(channelShort1, color=#801922, title="Strong Short Channel 1", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort2, color=#801922, title="Strong Short Channel 2", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort3, color=#801922, title="Strong Short Channel 3", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort4, color=#801922, title="Strong Short Channel 4", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort5, color=#801922, title="Strong Short Channel 5", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort6, color=#801922, title="Strong Short Channel 6", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort7, color=#801922, title="Strong Short Channel 7", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort8, color=#801922, title="Strong Short Channel 8", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort9, color=#801922, title="Strong Short Channel 9", linewidth=1,display=derivertiveDisplayZone)
+plot(channelShort10, color=#b2283380, title="Strong Short Channel 10", linewidth=6,display=derivertiveDisplayZone)
+
+channelSell1 = higherSell - (gapSell*1)
+channelSell2 = higherSell - (gapSell*2)
+channelSell3 = higherSell - (gapSell*3)
+channelSell4 = higherSell - (gapSell*4)
+channelSell5 = higherSell - (gapSell*5)
+channelSell6 = higherSell - (gapSell*6)
+channelSell7 = higherSell - (gapSell*7)
+channelSell8 = higherSell - (gapSell*8)
+channelSell9 = higherSell - (gapSell*9)
+channelSell10 = higherSell - (gapSell*10)
+
+plot(channelSell1, color=#b22833, title="Strong Sell Channel 1", linewidth=1,display=displayZone)
+plot(channelSell2, color=#b22833, title="Strong Sell Channel 2", linewidth=1,display=displayZone)
+plot(channelSell3, color=#b22833, title="Strong Sell Channel 3", linewidth=1,display=displayZone)
+plot(channelSell4, color=#b22833, title="Strong Sell Channel 4", linewidth=1,display=displayZone)
+plot(channelSell5, color=#b22833, title="Strong Sell Channel 5", linewidth=1,display=displayZone)
+plot(channelSell6, color=#b22833, title="Strong Sell Channel 6", linewidth=1,display=displayZone)
+plot(channelSell7, color=#b22833, title="Strong Sell Channel 7", linewidth=1,display=displayZone)
+plot(channelSell8, color=#b22833, title="Strong Sell Channel 8", linewidth=1,display=displayZone)
+plot(channelSell9, color=#b22833, title="Strong Sell Channel 9", linewidth=1,display=displayZone)
+plot(channelSell10, color=#f2364680, title="Strong Sell Channel 10", linewidth=6,display=displayZone)
+
+channelNormal1 = lowerSell - (gapNormal*1) 
+channelNormal2 = lowerSell - (gapNormal*2)
+channelNormal3 = lowerSell - (gapNormal*3)
+channelNormal4 = lowerSell - (gapNormal*4)
+channelNormal5 = lowerSell - (gapNormal*5)
+channelNormal6 = lowerSell - (gapNormal*6)
+channelNormal7 = lowerSell - (gapNormal*7)
+channelNormal8 = lowerSell - (gapNormal*8)
+channelNormal9 = lowerSell - (gapNormal*9)
+channelNormal10 = lowerSell - (gapNormal*10)
+
+plot(channelNormal1, color=#f57f17, title="Normal Channel 1", linewidth=1,display=displayZone)
+plot(channelNormal2, color=#f57f17, title="Normal Channel 2", linewidth=1,display=displayZone)
+plot(channelNormal3, color=#f57f17, title="Normal Channel 3", linewidth=1,display=displayZone)
+plot(channelNormal4, color=#f57f17, title="Normal Channel 4", linewidth=1,display=displayZone)
+plot(channelNormal5, color=#f57f17, title="Normal Channel 5", linewidth=1,display=displayZone)
+plot(channelNormal6, color=#f57f17, title="Normal Channel 6", linewidth=1,display=displayZone)
+plot(channelNormal7, color=#f57f17, title="Normal Channel 7", linewidth=1,display=displayZone)
+plot(channelNormal8, color=#f57f17, title="Normal Channel 8", linewidth=1,display=displayZone)
+plot(channelNormal9, color=#f57f17, title="Normal Channel 9", linewidth=1,display=displayZone)
+plot(channelNormal10, color=#4caf5080, title="Normal Channel 10", linewidth=6,display=displayZone)
+
+channelBuy1 = higherBuy - (gapBuy*1)
+channelBuy2 = higherBuy - (gapBuy*2)
+channelBuy3 = higherBuy - (gapBuy*3)
+channelBuy4 = higherBuy - (gapBuy*4)
+channelBuy5 = higherBuy - (gapBuy*5)
+channelBuy6 = higherBuy - (gapBuy*6)
+channelBuy7 = higherBuy - (gapBuy*7)
+channelBuy8 = higherBuy - (gapBuy*8)
+channelBuy9 = higherBuy - (gapBuy*9)
+channelBuy10 = higherBuy - (gapBuy*10)
+
+plot(channelBuy1, color=#1b5e20, title="Strong Buy Channel 1", linewidth=1,display=displayZone)
+plot(channelBuy2, color=#1b5e20, title="Strong Buy Channel 2", linewidth=1,display=displayZone)
+plot(channelBuy3, color=#1b5e20, title="Strong Buy Channel 3", linewidth=1,display=displayZone)
+plot(channelBuy4, color=#1b5e20, title="Strong Buy Channel 4", linewidth=1,display=displayZone)
+plot(channelBuy5, color=#1b5e20, title="Strong Buy Channel 5", linewidth=1,display=displayZone)
+plot(channelBuy6, color=#1b5e20, title="Strong Buy Channel 6", linewidth=1,display=displayZone)
+plot(channelBuy7, color=#1b5e20, title="Strong Buy Channel 7", linewidth=1,display=displayZone)
+plot(channelBuy8, color=#1b5e20, title="Strong Buy Channel 8", linewidth=1,display=displayZone)
+plot(channelBuy9, color=#1b5e20, title="Strong Buy Channel 9", linewidth=1,display=displayZone)
+plot(channelBuy10, color=#1b5e1f80, title="Strong Buy Channel 10", linewidth=6,display=displayZone)
+
+channelLong1 = maStrongBuy - (gapLong*1)
+channelLong2 = maStrongBuy - (gapLong*2)
+channelLong3 = maStrongBuy - (gapLong*3)
+channelLong4 = maStrongBuy - (gapLong*4)
+channelLong5 = maStrongBuy - (gapLong*5)
+channelLong6 = maStrongBuy - (gapLong*6)
+channelLong7 = maStrongBuy - (gapLong*7)
+channelLong8 = maStrongBuy - (gapLong*8)
+channelLong9 = maStrongBuy - (gapLong*9)
+channelLong10 = maStrongBuy - (gapLong*10)
+
+plot(channelLong1, color=#00332a, title="Strong Long Channel 1", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong2, color=#00332a, title="Strong Long Channel 2", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong3, color=#00332a, title="Strong Long Channel 3", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong4, color=#00332a, title="Strong Long Channel 4", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong5, color=#00332a, title="Strong Long Channel 5", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong6, color=#00332a, title="Strong Long Channel 6", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong7, color=#00332a, title="Strong Long Channel 7", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong8, color=#00332a, title="Strong Long Channel 8", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong9, color=#00332a, title="Strong Long Channel 9", linewidth=1,display=derivertiveDisplayZone)
+plot(channelLong10, color=#00332a80, title="Strong Long Channel 10", linewidth=6,display=derivertiveDisplayZone)
+//---------------------------------------------------------------------------------------------------
+
+
+//------------------------------------------ Calculate ----------------------------------------------
+short = price > higherSell 
+sell = price > lowerSell and price < higherSell
+halfBuy = price < lowerSell and price > higherBuy 
+buy = price < higherBuy and price > lowerBuy
+long = price < lowerBuy
+
+percent = 0
+
+percentPeriodOfZoneShort = math.abs(StartShortZone - EndShortZone)/10
+percentPeriodOfZoneSell = math.abs(StartSellZone - EndSellZone)/10
+percentPeriodOfZoneNormal = math.abs(StartNormalZone - EndNormalZone)/10
+percentPeriodOfZoneBuy = math.abs(StartBuyZone - EndBuyZone)/10
+percentPeriodOfZoneLong = math.abs(StartLongZone - EndLongZone)/10
+
+if(short)
+    percent := price > channelShort1 ? StartShortZone-(percentPeriodOfZoneShort*1) :
+              price > channelShort2 ? StartShortZone-(percentPeriodOfZoneShort*2) : 
+              price > channelShort3 ? StartShortZone-(percentPeriodOfZoneShort*3) : 
+              price > channelShort4 ? StartShortZone-(percentPeriodOfZoneShort*4) : 
+              price > channelShort5 ? StartShortZone-(percentPeriodOfZoneShort*5) : 
+              price > channelShort6 ? StartShortZone-(percentPeriodOfZoneShort*6) : 
+              price > channelShort7 ? StartShortZone-(percentPeriodOfZoneShort*7) : 
+              price > channelShort8 ? StartShortZone-(percentPeriodOfZoneShort*8) : 
+              price > channelShort9 ? StartShortZone-(percentPeriodOfZoneShort*9) : 
+              StartShortZone-(percentPeriodOfZoneShort*10)
+else if(sell)
+    percent := price > channelSell1 ? StartSellZone-(percentPeriodOfZoneSell*0) :
+              price > channelSell2 ? StartSellZone-(percentPeriodOfZoneSell*1) : 
+              price > channelSell3 ? StartSellZone-(percentPeriodOfZoneSell*2) : 
+              price > channelSell4 ? StartSellZone-(percentPeriodOfZoneSell*3) : 
+              price > channelSell5 ? StartSellZone-(percentPeriodOfZoneSell*4) : 
+              price > channelSell6 ? StartSellZone-(percentPeriodOfZoneSell*5) : 
+              price > channelSell7 ? StartSellZone-(percentPeriodOfZoneSell*6) : 
+              price > channelSell8 ? StartSellZone-(percentPeriodOfZoneSell*7) : 
+              price > channelSell9 ? StartSellZone-(percentPeriodOfZoneSell*8) : 
+              price > channelSell10 ? StartSellZone-(percentPeriodOfZoneSell*9) : 
+              StartSellZone-(percentPeriodOfZoneSell*10)
+else if(halfBuy)
+    percent := price > channelNormal1 ? StartNormalZone+(percentPeriodOfZoneNormal*1) :
+              price > channelNormal2 ? StartNormalZone+(percentPeriodOfZoneNormal*2) : 
+              price > channelNormal3 ? StartNormalZone+(percentPeriodOfZoneNormal*3) : 
+              price > channelNormal4 ? StartNormalZone+(percentPeriodOfZoneNormal*4) : 
+              price > channelNormal5 ? StartNormalZone+(percentPeriodOfZoneNormal*5) : 
+              price > channelNormal6 ? StartNormalZone+(percentPeriodOfZoneNormal*6) : 
+              price > channelNormal7 ? StartNormalZone+(percentPeriodOfZoneNormal*7) : 
+              price > channelNormal8 ? StartNormalZone+(percentPeriodOfZoneNormal*8) : 
+              price > channelNormal9 ? StartNormalZone+(percentPeriodOfZoneNormal*9) : 
+              StartNormalZone+(percentPeriodOfZoneNormal*10)
+else if(buy)
+    percent := price > channelBuy1 ? StartBuyZone+(percentPeriodOfZoneBuy*1) :
+              price > channelBuy2 ? StartBuyZone+(percentPeriodOfZoneBuy*2) : 
+              price > channelBuy3 ? StartBuyZone+(percentPeriodOfZoneBuy*3) : 
+              price > channelBuy4 ? StartBuyZone+(percentPeriodOfZoneBuy*4) : 
+              price > channelBuy5 ? StartBuyZone+(percentPeriodOfZoneBuy*5) : 
+              price > channelBuy6 ? StartBuyZone+(percentPeriodOfZoneBuy*6) : 
+              price > channelBuy7 ? StartBuyZone+(percentPeriodOfZoneBuy*7) : 
+              price > channelBuy8 ? StartBuyZone+(percentPeriodOfZoneBuy*8) : 
+              price > channelBuy9 ? StartBuyZone+(percentPeriodOfZoneBuy*9) :
+              StartBuyZone+(percentPeriodOfZoneBuy*10)
+else if(long)
+    percent := price > channelLong1 ? StartLongZone+(percentPeriodOfZoneLong*1) :
+              price > channelLong2 ? StartLongZone+(percentPeriodOfZoneLong*2) : 
+              price > channelLong3 ? StartLongZone+(percentPeriodOfZoneLong*3) : 
+              price > channelLong4 ? StartLongZone+(percentPeriodOfZoneLong*4) : 
+              price > channelLong5 ? StartLongZone+(percentPeriodOfZoneLong*5) : 
+              price > channelLong6 ? StartLongZone+(percentPeriodOfZoneLong*6) : 
+              price > channelLong7 ? StartLongZone+(percentPeriodOfZoneLong*7) : 
+              price > channelLong8 ? StartLongZone+(percentPeriodOfZoneLong*8) : 
+              price > channelLong9 ? StartLongZone+(percentPeriodOfZoneLong*9) :
+              StartLongZone+(percentPeriodOfZoneLong*10)
+//---------------------------------------------------------------------------------------------------
+
+//-------------------------------------------- Display ----------------------------------------------
+labeltcolor = color.white
+textLabel = buy ? 'Buy' : halfBuy ? "Normal Buy" : long ? "Long" : sell ? "Sell" : "Short"
+labelcolor = buy ? color.green : halfBuy ? color.orange : long ? color.green : sell ? color.red : color.red
+reserve = 0.0
+reserve := barstate.isfirst ? WaitingDCA : reserve[1]
+
+amountBuy = 0.0
+amountSell = 0.0
+if(percent > 100)
+    amountBuy := (useReserve ? (reserve*(percent - 100)/100) : 0) + (DCA*100/100)
+else
+    amountBuy := (DCA*percent/100)
+
+if(percent < 0)
+    amountSell := ((Invested*(percent)/100))/price
+else
+    amountSell := (Invested*(percent)/100)/price
+    
+currency = buy ? syminfo.currency : halfBuy ? syminfo.currency : long ? syminfo.currency : sell ? syminfo.basecurrency : syminfo.basecurrency
+textAmount = buy or halfBuy or long ? str.format("+{0}",amountBuy) : str.format("-{0}",amountSell)
+
+waitingAmount = amountBuy < DCA ? (DCA - amountBuy) : reserve > amountBuy ? (reserve - amountBuy) : reserve
+waitingOperator = percent > 100 ? "" : "+"
+textWaitingAmount = buy or halfBuy or long ? str.format("{0}{1}",waitingOperator,waitingAmount) : str.format("-{0}",waitingAmount)
+
+var table panelTable = table.new(position.bottom_right, 5, 6, border_width=1)
+f_fillCell(_table, _column, _row, _title, _value, _bgcolor, _txtcolor) =>
+    _cellText = _title + " " + _value
+    table.cell(_table, _column, _row, _cellText, bgcolor=_bgcolor, text_color=_txtcolor)
+
+var bgPanelColor = color.new(color.black,0)
+
+if labelSwitch
+    // Update table
+    tableIndex = 0
+
+    if cdcActionSwitch
+        f_fillCell(panelTable, 0, tableIndex+0, "CDC Action Zone:", cdcActionZoneBull ? "Bull" : "Bear",bgPanelColor, cdcActionZoneColor)
+
+    f_fillCell(panelTable, 0, tableIndex+1, "Zone:", textLabel, bgPanelColor, labelcolor)
+    f_fillCell(panelTable, 0, tableIndex+2, "Percent:", str.tostring(percent) + " %", bgPanelColor, labelcolor)
+    f_fillCell(panelTable, 0, tableIndex+3, "Amount:", textAmount +" "+ currency, bgPanelColor, labelcolor)
+    f_fillCell(panelTable, 0, tableIndex+4, "Waiting Amount:", textWaitingAmount  +" "+ syminfo.currency, bgPanelColor, color.white)
+
+    if useReserve
+        f_fillCell(panelTable, 0, tableIndex+5, "Reserve:", str.tostring(reserve)  +" "+ syminfo.currency, bgPanelColor, color.white)
+
+//---------------------------------------------------------------------------------------------------
+
+//------------------------------------------ Strategy -----------------------------------------------
+qty = 0.0
+shortSize = 0.0
+shortSize := barstate.isfirst ? 0.0:shortSize[1]
+longSize = 0.0
+longSize := barstate.isfirst ? 0.0:longSize[1]
+
+//Calculate QTY and Waiting DCA
+if(buy)
+    if(cdcActionSwitch)
+        qty := (amountBuy+(useReserve ? reserve : 0))/price
+        reserve := useReserve ? 0 : reserve
+    else
+        qty := amountBuy/price
+        reserve := percent > 100 and useReserve ? reserve * (percent-100)/100 : reserve + (DCA - amountBuy)
+else if(halfBuy)
+    if(cdcActionSwitch)
+        qty := (amountBuy+(useReserve ? reserve : 0))/price
+        reserve := useReserve ? 0 : reserve
+    else
+        qty := amountBuy/price
+        reserve := percent > 100 and useReserve ? reserve * (percent-100)/100 : reserve + (DCA - amountBuy)
+else if(sell)
+    qty := strategy.position_size > 0 ? strategy.position_size * percent/100 : 0
+else if(short)
+    qty := (DCA/price) * percent/100
+else if(long)
+    qty := (DCA/price) * percent/100
+
+// plot(reserve,title="reserve",display=display.data_window)
+// plot(qty,title="qty",display=display.data_window)
+// plot(percent,title="percent",display=display.data_window)
+// plot(amountBuy/price,title="amountBuy",display=display.data_window)
+// plot(waitingAmount,title="waiting amount",display=display.data_window)
+// plot(price,title="price",display=display.data_window)
+// plot(indexStrong,title="indexStrong",display=display.data_window)
+
+//Order
+// Convert the input to timestamp
+startDate = timestamp(startYear_input, startMonth_input, startDay_input)
+endDate = timestamp(endYear_input, endMonth_input, endDay_input)
+
+inBacktestRange = time >= startDate and time <= endDate
+
+if(strategySwitch and inBacktestRange and qty > 0)
+    if(cdcActionSwitch)
+        if(bar and buy and cdcActionZoneBull)
+            strategy.order(str.format("DCA Buy {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.long,qty=qty)
+        else if(bar and halfBuy and cdcActionZoneBull)
+            strategy.order(str.format("DCA Normal {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.long,qty=qty)
+        else if(bar and sell and cdcActionZoneBear)
+            strategy.order(str.format("DCA Sell {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.short,qty=qty)
+            
+        if(useDerivative)
+            if(bar and short and cdcActionZoneBear)
+                strategy.order(str.format("DCA Short {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.short,qty=qty)
+            if(bar and long and cdcActionZoneBull)
+                strategy.order(str.format("DCA Long {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.long,qty=qty)
+    else
+        if(bar and buy)
+            strategy.order(str.format("DCA Buy {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.long,qty=qty)
+        else if(bar and halfBuy)
+            strategy.order(str.format("DCA Normal {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.long,qty=qty)
+        else if(bar and sell)
+            strategy.order(str.format("DCA Sell {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.short,qty=qty)
+            
+        if(useDerivative)
+            if(bar and short)
+                strategy.order(str.format("DCA Short {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.short,qty=qty)
+            if(bar and long)
+                strategy.order(str.format("DCA Long {0}% = {1} {2}",percent,qty,syminfo.basecurrency),strategy.long,qty=qty)
+            
+
+//Exit Derivative
+if(strategySwitch and useDerivative)
+    if(bar and halfBuy and shortSize > 0)
+        strategy.order(str.format("Exit Short",percent,shortSize,syminfo.basecurrency),strategy.long,qty=shortSize)
+        shortSize := 0
+    if(bar and halfBuy and longSize > 0)
+        strategy.order(str.format("Exit Long",percent,longSize,syminfo.basecurrency),strategy.short,qty=longSize)
+        longSize := 0
+        
+//END
+if(last_bar)       
+    //strategy.close_all()
+    if(predictFuturePrice)
+        line.new(firstTimeStampMAStrong, firstStrongSellPricePredict, time, maStrongSell , xloc.bar_time, extend.both, #b22833, line.style_dashed, 2)
+        line.new(firstTimeStampMA, firstSellPricePredict, time, maSell , xloc.bar_time, extend.both, color.red, line.style_dashed, 2)
+        line.new(firstTimeStampMA, firstBuyPricePredict, time, maBuy , xloc.bar_time, extend.both, color.green, line.style_dashed, 2)
+        line.new(firstTimeStampMAStrong, firstStrongBuyPricePredict, time, maStrongBuy , xloc.bar_time, extend.both, #1b5e20, line.style_dashed, 2)
+        
+        if(useDerivative)
+            line.new(firstTimeStampMAStrong, firstShortPricePredict, time, maShort , xloc.bar_time, extend.both, #801922, line.style_dashed, 2)
+            line.new(firstTimeStampMAStrong, firstLongPricePredict, time, maLong , xloc.bar_time, extend.both, #00332a, line.style_dashed, 2)
+
+// HALVINGS
+DT = 24*60*60*1000
+
+rh_now = array.from(timestamp(2012,11,28,0,0), timestamp(2016,7,9,0,0), timestamp(2020,4,30,0,0), timestamp(2024,4,20,0,0)) // Having Date
+rh_predict = array.from(timestamp(2028,4,0,0,0), timestamp(2032,3,20,0,0), timestamp(2036,3,5,0,0), timestamp(2040,2,25,0,0), timestamp(2044,3,5,0,0), timestamp(2048,2,25,0,0), timestamp(2052,2,20,0,0))
+rh_values = array.concat(rh_now, rh_predict) 
+
+//Halving
+get_range(rh, time) =>
+    time >= rh - 3*DT and time <= rh + 3*DT
+
+any_range_true = false
+
+for i = 0 to array.size(rh_values) - 1
+    rh = array.get(rh_values, i)
+    rh_range = get_range(rh, time)
+    any_range_true := any_range_true or rh_range
+bgcolor(any_range_true and useHalving ? color.red : na)
+
+//Half Halving
+get_half_range(rh, rh_next, extendHalfOfHalving, time) =>
+    half_rh = (rh + rh_next) * 0.5 + extendHalfOfHalving * DT
+    time >= half_rh - 3 * DT and time <= half_rh + 3 * DT
+
+
+any_half_range_true = false
+
+for i = 0 to array.size(rh_values) - 2
+    rh = array.get(rh_values, i)
+    rh_next = array.get(rh_values, i + 1)
+    halfrh_range = get_half_range(rh, rh_next, extendHalfOfHalving, time)
+    any_half_range_true := any_half_range_true or halfrh_range
+
+bgcolor(any_half_range_true and useHalving ? color.yellow : na)
