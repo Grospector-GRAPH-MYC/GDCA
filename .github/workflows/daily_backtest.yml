@@ -42,7 +42,7 @@ jobs:
       - name: Run Backtest
         env:
           # Strategy Config
-          SYMBOL: ${{ vars.SYMBOL || 'BTCUSDT' }}
+          SYMBOL: ${{ vars.SYMBOL || 'BTC/USD' }}
           DCA_AMOUNT: ${{ vars.DCA_AMOUNT || '1000.0' }}
           LOT_SIZE: ${{ vars.LOT_SIZE || '0.001' }}
           TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '0.05' }}
