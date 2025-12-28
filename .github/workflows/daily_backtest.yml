@@ -31,33 +31,33 @@ jobs:
 
       - name: Download Data
         env:
-          DATA_SYMBOL: ${{ secrets.DATA_SYMBOL || 'BTC/USD' }}
-          DATA_VENUE: ${{ secrets.DATA_VENUE || 'BITSTAMP' }}
-          DATA_TIMEFRAME: ${{ secrets.DATA_TIMEFRAME || '1d' }}
-          DATA_START_DATE: ${{ secrets.DATA_START_DATE || '2020-01-01' }} # Default to shorter window for CI?
+          DATA_SYMBOL: ${{ vars.DATA_SYMBOL || 'BTC/USD' }}
+          DATA_VENUE: ${{ vars.DATA_VENUE || 'BITSTAMP' }}
+          DATA_TIMEFRAME: ${{ vars.DATA_TIMEFRAME || '1d' }}
+          DATA_START_DATE: ${{ vars.DATA_START_DATE || '2011-01-01' }} # Default to shorter window for CI?
         run: poetry run python scripts/download_data.py
 
       - name: Run Backtest
         env:
           # Strategy Config
-          SYMBOL: ${{ secrets.SYMBOL || 'BTCUSDT' }}
-          DCA_AMOUNT: ${{ secrets.DCA_AMOUNT || '1000.0' }}
-          LOT_SIZE: ${{ secrets.LOT_SIZE || '0.001' }}
-          TAKE_PROFIT_PCT: ${{ secrets.TAKE_PROFIT_PCT || '0.05' }}
-          STEP_DROP_PCT: ${{ secrets.STEP_DROP_PCT || '0.01' }}
-          MAX_POSITIONS: ${{ secrets.MAX_POSITIONS || '10' }}
+          SYMBOL: ${{ vars.SYMBOL || 'BTCUSDT' }}
+          DCA_AMOUNT: ${{ vars.DCA_AMOUNT || '1000.0' }}
+          LOT_SIZE: ${{ vars.LOT_SIZE || '0.001' }}
+          TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '0.05' }}
+          STEP_DROP_PCT: ${{ vars.STEP_DROP_PCT || '0.01' }}
+          MAX_POSITIONS: ${{ vars.MAX_POSITIONS || '10' }}
           
-          # Zone Config (Optional overrides from Secrets)
-          START_SHORT_ZONE: ${{ secrets.START_SHORT_ZONE }}
-          END_SHORT_ZONE: ${{ secrets.END_SHORT_ZONE }}
-          START_SELL_ZONE: ${{ secrets.START_SELL_ZONE }}
-          END_SELL_ZONE: ${{ secrets.END_SELL_ZONE }}
-          START_NORMAL_ZONE: ${{ secrets.START_NORMAL_ZONE }}
-          END_NORMAL_ZONE: ${{ secrets.END_NORMAL_ZONE }}
-          START_BUY_ZONE: ${{ secrets.START_BUY_ZONE }}
-          END_BUY_ZONE: ${{ secrets.END_BUY_ZONE }}
-          START_LONG_ZONE: ${{ secrets.START_LONG_ZONE }}
-          END_LONG_ZONE: ${{ secrets.END_LONG_ZONE }}
+          # Zone Config (Optional overrides)
+          START_SHORT_ZONE: ${{ vars.START_SHORT_ZONE || '100' }}
+          END_SHORT_ZONE: ${{ vars.END_SHORT_ZONE || '0' }}
+          START_SELL_ZONE: ${{ vars.START_SELL_ZONE || '100' }}
+          END_SELL_ZONE: ${{ vars.END_SELL_ZONE || '0' }}
+          START_NORMAL_ZONE: ${{ vars.START_NORMAL_ZONE || '0' }}
+          END_NORMAL_ZONE: ${{ vars.END_NORMAL_ZONE || '100' }}
+          START_BUY_ZONE: ${{ vars.START_BUY_ZONE || '100' }}
+          END_BUY_ZONE: ${{ vars.END_BUY_ZONE || '200' }}
+          START_LONG_ZONE: ${{ vars.START_LONG_ZONE || '0' }}
+          END_LONG_ZONE: ${{ vars.END_LONG_ZONE || '100' }}
         run: poetry run python scripts/run_backtest.py
 
       - name: Upload Backtest Result
