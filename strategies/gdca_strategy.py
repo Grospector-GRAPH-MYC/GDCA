@@ -59,6 +59,10 @@ class GDCAConfig(StrategyConfig, frozen=True):
     step_drop_pct: str = "0.01"
     take_profit_pct: str = "0.05"
     max_positions: int = 10
+    
+    # Backtest Execution Filter
+    backtest_start: Optional[str] = None
+    backtest_end: Optional[str] = None
 
 
 class GDCAStrategy(Strategy):
@@ -150,7 +154,13 @@ class GDCAStrategy(Strategy):
         self.sell_multi = Decimal(config.manual_sell_multi)
         self.buy_multi = Decimal(config.manual_buy_multi)
         self.strong_buy_multi = Decimal(config.manual_strong_buy_multi)
+        self.strong_buy_multi = Decimal(config.manual_strong_buy_multi)
         self.long_multi = Decimal(config.manual_long_multi)
+        
+        # Parse Backtest Date Filter
+        import pandas as pd
+        self.start_ts = pd.Timestamp(config.backtest_start).value if config.backtest_start else None
+        self.end_ts = pd.Timestamp(config.backtest_end).value if config.backtest_end else None
 
     def on_start(self):
         self.log.info(f"GDCA V.4 Strategy started for {self.instrument_id}")
@@ -189,6 +199,13 @@ class GDCAStrategy(Strategy):
         self.ema_slow.update_raw(close_price)
         
         if not self.ma_of_ma.initialized or not self.ema_slow.initialized:
+            return
+            
+        # --- Backtest Date Filter Check ---
+        # Allow indicators to calculate above, but stop execution if outside range
+        if self.start_ts and bar.ts_init < self.start_ts:
+            return
+        if self.end_ts and bar.ts_init > self.end_ts:
             return
             
         # --- Calculate Lines ---

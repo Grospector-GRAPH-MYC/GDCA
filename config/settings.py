@@ -114,5 +114,14 @@ class Settings:
     def DATA_TYPE(self) -> str:
         return self._get("data_type", section="data", default="bar")
 
+    # --- Backtest Config ---
+    @property
+    def BACKTEST_START_DATE(self) -> str:
+        return self._get("backtest_start_date", section="backtest", default=None)
+
+    @property
+    def BACKTEST_END_DATE(self) -> str:
+        return self._get("backtest_end_date", section="backtest", default=None)
+
 # Singleton Instance
 settings = Settings()

@@ -1,69 +1,65 @@
-name: Daily GDCA Backtest
+name: Daily Backtest
 
 on:
-  push:
-    branches: [ "main" ]
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight UTC
-  workflow_dispatch:      # Allow manual trigger
+    # Run at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  backtest:
+  run-backtest:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # Needed for pushing to gh-pages if we add that later
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: '3.11'
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
           virtualenvs-create: true
           virtualenvs-in-project: true
+          installer-parallel: true
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
 
-      - name: Download Data
-        env:
-          DATA_SYMBOL: ${{ vars.DATA_SYMBOL || 'BTC/USD' }}
-          DATA_VENUE: ${{ vars.DATA_VENUE || 'BITSTAMP' }}
-          DATA_TIMEFRAME: ${{ vars.DATA_TIMEFRAME || '1d' }}
-          DATA_START_DATE: ${{ vars.DATA_START_DATE || '2011-01-01' }} # Default to shorter window for CI?
-        run: poetry run python scripts/download_data.py
+      - name: Download Data (Incremental)
+        id: download
+        run: |
+          # Capture output to check for update
+          OUTPUT=$(poetry run python scripts/download_data.py --incremental)
+          echo "$OUTPUT"
+          
+          if echo "$OUTPUT" | grep -q "DATA_UPDATED"; then
+            echo "updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run Backtest
-        env:
-          # Strategy Config
-          SYMBOL: ${{ vars.SYMBOL || 'BTC/USD' }}
-          DCA_AMOUNT: ${{ vars.DCA_AMOUNT || '1000.0' }}
-          LOT_SIZE: ${{ vars.LOT_SIZE || '0.001' }}
-          TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '0.05' }}
-          STEP_DROP_PCT: ${{ vars.STEP_DROP_PCT || '0.01' }}
-          MAX_POSITIONS: ${{ vars.MAX_POSITIONS || '10' }}
-          
-          # Zone Config (Optional overrides)
-          START_SHORT_ZONE: ${{ vars.START_SHORT_ZONE || '100' }}
-          END_SHORT_ZONE: ${{ vars.END_SHORT_ZONE || '0' }}
-          START_SELL_ZONE: ${{ vars.START_SELL_ZONE || '100' }}
-          END_SELL_ZONE: ${{ vars.END_SELL_ZONE || '0' }}
-          START_NORMAL_ZONE: ${{ vars.START_NORMAL_ZONE || '0' }}
-          END_NORMAL_ZONE: ${{ vars.END_NORMAL_ZONE || '100' }}
-          START_BUY_ZONE: ${{ vars.START_BUY_ZONE || '100' }}
-          END_BUY_ZONE: ${{ vars.END_BUY_ZONE || '200' }}
-          START_LONG_ZONE: ${{ vars.START_LONG_ZONE || '0' }}
-          END_LONG_ZONE: ${{ vars.END_LONG_ZONE || '100' }}
-        run: poetry run python scripts/run_backtest.py
+        if: steps.download.outputs.updated == 'true'
+        run: |
+          poetry run python scripts/run_backtest.py
 
-      - name: Upload Backtest Result
-        uses: actions/upload-artifact@v4
-        with:
-          name: backtest-report
-          path: backtest_result.html
+      - name: Commit and Push Changes
+        if: steps.download.outputs.updated == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add Catalog Changes
+          git add catalog/
+          
+          # Add Results
+          git add dca_result.html gdca_result.html comparison_result.html
+          
+          git commit -m "Auto-update: Backtest results for $(date +'%Y-%m-%d')"
+          git push

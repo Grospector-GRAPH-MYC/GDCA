@@ -71,7 +71,11 @@ def run_backtest():
         step_drop_pct=settings.STEP_DROP_PCT,
         take_profit_pct=settings.TAKE_PROFIT_PCT,
         max_positions=settings.MAX_POSITIONS,
-        timeframe=settings.TIMEFRAME
+        timeframe=settings.TIMEFRAME,
+        
+        # Backtest Filter
+        backtest_start=settings.BACKTEST_START_DATE,
+        backtest_end=settings.BACKTEST_END_DATE
     )
     strategy = GDCAStrategy(config=strategy_config)
     engine.add_strategy(strategy)
@@ -122,9 +126,12 @@ def run_backtest():
     )
     
     print("Loading data...")
-    bars = catalog.bars([bar_type])
+    bars = catalog.bars([str(bar_type)])
     print(f"Loaded {len(bars)} bars.")
     
+    # Data is fed entirely to engine to allow indicator warmup.
+    # Strategy handles execution filtering internally.
+
     engine.add_data(bars)
     
     # 5. Run
@@ -296,19 +303,29 @@ def run_backtest():
     elif 'qty' in df_fills.columns:
         qty_col = 'qty'
 
-    price_col = 'price'
+        price_col = 'price'
     if 'last_px' in df_fills.columns:
         price_col = 'last_px'
         
     print(f"Using Quantity Col: {qty_col}, Price Col: {price_col}")
+    
+    # Parse Simulation Date Filter
+    start_ts_sim = pd.Timestamp(settings.BACKTEST_START_DATE, tz='UTC') if settings.BACKTEST_START_DATE else None
+    end_ts_sim = pd.Timestamp(settings.BACKTEST_END_DATE, tz='UTC') if settings.BACKTEST_END_DATE else None
 
     for current_time, row in df_bars.iterrows():
-        # Daily Deposit Logic (DCA Plan)
-        row_date = current_time.date()
-        if last_processed_date is None or row_date > last_processed_date:
-            simul_cash += dca_sim_amount
-            simul_invested_total += dca_sim_amount
-            last_processed_date = row_date
+        # Check Date Range for Injection/Buying
+        in_range = True
+        if start_ts_sim and current_time < start_ts_sim: in_range = False
+        if end_ts_sim and current_time > end_ts_sim: in_range = False
+        
+        # Daily Deposit Logic (DCA Plan) - Only if in range
+        if in_range:
+            row_date = current_time.date()
+            if last_processed_date is None or row_date > last_processed_date:
+                simul_cash += dca_sim_amount
+                simul_invested_total += dca_sim_amount
+                last_processed_date = row_date
 
         # Process new fills since last update
         while last_processed_fill_idx < total_fills:
@@ -352,12 +369,12 @@ def run_backtest():
             last_processed_fill_idx += 1
             
         # --- Standard DCA Simulation (Naive Daily Buy) ---
-        # Buy simply every day at Close price
+        # Buy simply every day at Close price if in range
         # Use the same daily amount as the strategy's DCA_AMOUNT
-        daily_dca_amt = dca_sim_amount 
         current_close_price = row['Close']
         
-        if current_close_price > 0:
+        if in_range and current_close_price > 0:
+            daily_dca_amt = dca_sim_amount 
             purchased_btc = daily_dca_amt / float(current_close_price)
             std_dca_btc += purchased_btc
             std_dca_invested += daily_dca_amt
@@ -956,6 +973,35 @@ def run_backtest():
     # Pre-calculate steps
     steps = 10
     
+    # --- Filter Output Data Lists by Backtest Date Range ---
+    # We maintain full history for calculation, but trim for display/JSON
+    _trim_start = pd.Timestamp(settings.BACKTEST_START_DATE).timestamp() if settings.BACKTEST_START_DATE else 0
+    _trim_end = pd.Timestamp(settings.BACKTEST_END_DATE).timestamp() if settings.BACKTEST_END_DATE else float('inf')
+    
+    def _trim(dlist):
+        return [i for i in dlist if _trim_start <= i['time'] <= _trim_end]
+        
+    if settings.BACKTEST_START_DATE or settings.BACKTEST_END_DATE:
+        print(f"Trimming output data to range: {settings.BACKTEST_START_DATE} - {settings.BACKTEST_END_DATE}")
+        ohlc_data = _trim(ohlc_data)
+        ema12_data = _trim(ema12_data)
+        ema26_data = _trim(ema26_data)
+        markers = _trim(markers)
+        equity_data = _trim(equity_data)
+        bnh_data = _trim(bnh_data)
+        cash_data = _trim(cash_data)
+        holdings_data = _trim(holdings_data)
+        std_dca_equity_data = _trim(std_dca_equity_data)
+        
+        # Standard DCA Equity Loop Check (redundant if filtered above but safe)
+        
+        # MA Ribbons Source Data
+        ma_short_data = _trim(ma_short_data)
+        ma_strong_sell_data = _trim(ma_strong_sell_data)
+        ma_sell_data = _trim(ma_sell_data)
+        ma_buy_data = _trim(ma_buy_data)
+        ma_strong_buy_data = _trim(ma_strong_buy_data)
+        ma_long_data = _trim(ma_long_data)
 
 
     # Calculate Ribbons
@@ -1023,180 +1069,314 @@ def run_backtest():
     }
     json_metrics = json.dumps(metrics_payload)
     
-    # HTML Template
-    html_template = f"""
-<!DOCTYPE html>
+    # ========================================
+    # HTML GENERATORS
+    # ========================================
+    
+    def generate_strategy_html(
+        strategy_name: str,
+        strategy_color: str,
+        metrics: dict,
+        json_ohlc: str,
+        json_equity: str,
+        json_bnh: str,
+        json_cash: str,
+        json_holdings: str,
+        json_markers: str,
+        json_ema12: str,
+        json_ema26: str,
+        json_ribbons: str,
+        json_ribbons_past: str,
+        json_future: str,
+        json_past: str,
+        json_ma_short: str,
+        json_ma_strong_sell: str,
+        json_ma_sell: str,
+        json_ma_buy: str,
+        json_ma_strong_buy: str,
+        json_ma_long: str,
+        is_gdca: bool = True
+    ) -> str:
+        """Generate HTML for a single strategy view."""
+        
+        # Color scheme based on strategy
+        primary_color = strategy_color
+        gradient_start = "#0a0a0f"
+        gradient_end = "#1a1a2e" if is_gdca else "#1a1a1a"
+        
+        # Metrics for display
+        invested = metrics.get('total_invested', 0)
+        value = metrics.get('total_equity', 0) if is_gdca else metrics.get('std_dca_equity', 0)
+        profit = metrics.get('net_profit', 0) if is_gdca else metrics.get('std_dca_profit', 0)
+        roi = metrics.get('roi', 0) if is_gdca else metrics.get('std_dca_roi', 0)
+        max_dd = metrics.get('max_drawdown', 0) if is_gdca else metrics.get('std_dca_max_drawdown', 0)
+        btc_held = metrics.get('total_btc', 0) if is_gdca else 0
+        trades = metrics.get('total_trades', 0) if is_gdca else 'N/A'
+        
+        profit_class = 'green' if profit >= 0 else 'red'
+        
+        return f'''<!DOCTYPE html>
 <html>
 <head>
-    <title>GDCA Backtest (Lightweight Charts)</title>
+    <title>{strategy_name} Backtest Results</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-    <script>
-        window.onerror = function(msg, url, lineNo, columnNo, error) {{
-            var container = document.getElementById('container');
-            if(container) {{
-                container.innerHTML += '<div style="color:red; background:rgba(0,0,0,0.8); padding:20px;">' + 
-                    '<h3>JavaScript Error:</h3>' +
-                    '<p>' + msg + '</p>' +
-                    '<p>Line: ' + lineNo + '</p>' +
-                    '</div>';
-            }}
-            return false;
-        }};
-    </script>
     <style>
-        body {{ margin: 0; padding: 0; background-color: #131722; color: #d1d4dc; font-family: 'Trebuchet MS', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }}
-        #container {{ display: flex; flex-direction: column; height: 100%; width: 100%; position: relative; }}
-        #chart-price {{ flex: 2; position: relative; width: 100%; }}
-        #chart-equity {{ flex: 1; border-top: 1px solid #2a2e39; position: relative; width: 100%; }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
-        .overlay-stats {{
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 20;
-            background: rgba(30, 34, 45, 0.85);
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid #2a2e39;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, {gradient_start} 0%, {gradient_end} 100%);
+            color: #e1e5eb;
+            min-height: 100vh;
+            overflow-x: hidden;
         }}
-        .overlay-stats h2 {{ margin: 0 0 10px 0; font-size: 16px; color: #8C9FAD; }}
-        .stat-row {{ display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; min-width: 350px; }}
-        .stat-label {{ color: #787b86; }}
-        .stat-value {{ font-weight: bold; color: #d1d4dc; }}
-        .stat-value.green {{ color: #4caf50; }}
-        .stat-value.red {{ color: #f44336; }}
         
-        /* Log Scale Button */
+        .header {{
+            background: linear-gradient(90deg, {primary_color}22 0%, transparent 100%);
+            border-bottom: 1px solid {primary_color}44;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }}
+        
+        .header h1 {{
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(90deg, {primary_color}, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        
+        .header .subtitle {{
+            color: #6b7280;
+            font-size: 14px;
+        }}
+        
+        .main-container {{
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 80px);
+        }}
+        
+        .metrics-panel {{
+            background: rgba(30, 35, 50, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }}
+        
+        .metric-card {{
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.3s ease;
+        }}
+        
+        .metric-card:hover {{
+            background: rgba(255, 255, 255, 0.06);
+            border-color: {primary_color}44;
+            transform: translateY(-2px);
+        }}
+        
+        .metric-label {{
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }}
+        
+        .metric-value {{
+            font-size: 22px;
+            font-weight: 600;
+            color: #f3f4f6;
+        }}
+        
+        .metric-value.green {{ color: #10b981; }}
+        .metric-value.red {{ color: #ef4444; }}
+        
+        .metric-sub {{
+            font-size: 13px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }}
+        
+        .charts-container {{
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }}
+        
+        .chart-wrapper {{
+            background: rgba(20, 24, 35, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }}
+        
+        .chart-wrapper.price {{ flex: 2; }}
+        .chart-wrapper.equity {{ flex: 1; }}
+        
+        .chart-title {{
+            position: absolute;
+            top: 12px;
+            left: 16px;
+            z-index: 10;
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
+            background: rgba(20, 24, 35, 0.9);
+            padding: 6px 12px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+        }}
+        
         .controls {{
             position: absolute;
-            top: 20px;
-            right: 100px; /* Left of the price scale */
-            z-index: 20;
-        }}
-        .btn {{
-            background: #2962FF;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            opacity: 0.9;
-        }}
-        .btn:hover {{ opacity: 1; }}
-
-        /* Custom Legend */
-        .chart-legend {{
-            position: absolute;
-            left: 12px;
             top: 12px;
+            right: 16px;
             z-index: 10;
-            font-size: 12px;
-            font-family: sans-serif;
-            line-height: 18px;
-            font-weight: 300;
-            color: #fff;
-            pointer-events: none; /* Click through */
-            background: rgba(30, 34, 45, 0.85);
-            padding: 8px 12px;
-            border-radius: 4px;
-            border: 1px solid #2a2e39;
-            backdrop-filter: blur(4px);
+            display: flex;
+            gap: 8px;
         }}
         
+        .btn {{
+            background: rgba(255, 255, 255, 0.1);
+            color: #e1e5eb;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }}
+        
+        .btn:hover {{
+            background: {primary_color}33;
+            border-color: {primary_color};
+        }}
+        
+        .btn.active {{
+            background: {primary_color};
+            border-color: {primary_color};
+        }}
+        
+        #chart-price, #chart-equity {{ width: 100%; height: 100%; }}
+        
+        .tooltip-panel {{
+            position: absolute;
+            top: 45px;
+            left: 16px;
+            background: rgba(20, 24, 35, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 14px;
+            z-index: 20;
+            font-size: 12px;
+            min-width: 180px;
+            pointer-events: none;
+        }}
+        
+        .tooltip-panel .tp-row {{
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }}
+        
+        .tooltip-panel .tp-label {{
+            color: #6b7280;
+        }}
+        
+        .tooltip-panel .tp-value {{
+            color: #f3f4f6;
+            font-weight: 500;
+        }}
+        
+        .tooltip-panel .tp-value.green {{ color: #10b981; }}
+        .tooltip-panel .tp-value.red {{ color: #ef4444; }}
     </style>
 </head>
 <body>
-    <div id="container">
-        <!-- Floating Stats -->
-        <div class="overlay-stats">
-            <h2>DCA Strategy Performance</h2>
-            <div class="stat-row">
-                <span class="stat-label">Total Invested:</span>
-                <span class="stat-value">${metrics_payload['total_invested']:,.2f}</span>
-            </div>
-             <div class="stat-row">
-                <span class="stat-label">BTC Acquired:</span>
-                <span class="stat-value">{metrics_payload['total_btc']:.8f} BTC</span>
-            </div>
-             <div class="stat-row">
-                <span class="stat-label">Current Value:</span>
-                <span class="stat-value">${metrics_payload['total_equity']:,.2f}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">Net Profit:</span>
-                <span class="stat-value { 'green' if metrics_payload['net_profit'] >= 0 else 'red' }">${metrics_payload['net_profit']:,.2f} ({metrics_payload['roi']:+.2f}%)</span>
+    <div class="header">
+        <h1>{strategy_name}</h1>
+        <span class="subtitle">BTC/USD Backtest Results</span>
+    </div>
+    
+    <div class="main-container">
+        <div class="metrics-panel">
+            <div class="metric-card">
+                <div class="metric-label">Total Invested</div>
+                <div class="metric-value">${invested:,.2f}</div>
             </div>
             
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2e39;"></div>
-            
-            <div class="stat-row">
-                <span class="stat-label">Max Drawdown:</span>
-                <span class="stat-value red">{metrics_payload['max_drawdown']:.2f}%</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">Est. Trades:</span>
-                <span class="stat-value">{metrics_payload['total_trades']}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">Win Rate:</span>
-                <span class="stat-value">{metrics_payload['win_rate']:.2f}%</span>
-            </div>
-
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2e39;"></div>
-            <h2>Standard DCA Performance</h2>
-            <div class="stat-row">
-                <span class="stat-label">Total Invested:</span>
-                <span class="stat-value">${metrics_payload['std_dca_invested']:,.2f}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">Current Value:</span>
-                <span class="stat-value">${metrics_payload['std_dca_equity']:,.2f}</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">Net Profit:</span>
-                <span class="stat-value { 'green' if metrics_payload['std_dca_profit'] >= 0 else 'red' }">${metrics_payload['std_dca_profit']:,.2f} ({metrics_payload['std_dca_roi']:+.2f}%)</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-label">Max Drawdown:</span>
-                <span class="stat-value red">{metrics_payload['std_dca_max_drawdown']:.2f}%</span>
+            <div class="metric-card">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${value:,.2f}</div>
             </div>
             
-             <div style="margin-top: 15px; border-top: 1px solid #2a2e39; padding-top: 10px;">
-                <span style="color: #787b86; font-size: 12px; display: block; margin-bottom: 5px;">Selected Order:</span>
-                <div id="order-info" style="color: #64b5f6; font-weight: bold; min-height: 20px;">-</div>
+            <div class="metric-card">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value {profit_class}">${profit:,.2f}</div>
+                <div class="metric-sub {profit_class}">{roi:+.2f}% ROI</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value red">{max_dd:.2f}%</div>
+            </div>
+            
+            {"<div class='metric-card'><div class='metric-label'>BTC Holdings</div><div class='metric-value'>" + f"{btc_held:.8f}" + " BTC</div></div>" if is_gdca else ""}
+            
+            {"<div class='metric-card'><div class='metric-label'>Total Trades</div><div class='metric-value'>" + str(trades) + "</div></div>" if is_gdca else ""}
+            
+            <div class="metric-card" style="margin-top: auto;">
+                <div class="metric-label">Selected Order</div>
+                <div id="order-info" class="metric-value" style="font-size: 14px; color: {primary_color};">Hover over chart</div>
             </div>
         </div>
         
-        <!-- Controls -->
-        <div class="controls">
-             <button id="btn-log" class="btn">Log Scale: OFF</button>
-             <button id="btn-reset" class="btn" style="background: #e0e0e0; color: #333; margin-left:10px;">Reset Zoom</button>
+        <div class="charts-container">
+            <div class="chart-wrapper price">
+                <div class="chart-title">📈 Price Chart</div>
+                <div class="controls">
+                    <button id="btn-log" class="btn active">Log Scale</button>
+                    <button id="btn-reset" class="btn">Reset Zoom</button>
+                </div>
+                <div id="tooltip-price" class="tooltip-panel" style="display:none;"></div>
+                <div id="chart-price"></div>
+            </div>
+            
+            <div class="chart-wrapper equity">
+                <div class="chart-title">💰 Portfolio Value</div>
+                <div id="tooltip-equity" class="tooltip-panel" style="display:none;"></div>
+                <div id="chart-equity"></div>
+            </div>
         </div>
-
-        <div id="chart-price"></div>
-        <div id="chart-equity"></div>
     </div>
 
     <script>
-        // Data Injected from Python
         const ohlcData = {json_ohlc};
         const ema12Data = {json_ema12};
         const ema26Data = {json_ema26};
-        
-        // Marker Data
         const markerData = {json_markers};
-        
-        // Equity Data
         const equityData = {json_equity};
         const bnhData = {json_bnh};
-        const cashData = {json_cash}; // New: Cash Data
-        const holdingsData = {json_holdings}; // New: Holdings Data
-        const stdDcaEquityData = {json_std_dca_equity}; // New: Standard DCA Equity Data
+        const cashData = {json_cash};
+        const holdingsData = {json_holdings};
         
-        // Zone Data
         const maShortData = {json_ma_short};
         const maStrongSellData = {json_ma_strong_sell};
         const maSellData = {json_ma_sell};
@@ -1204,391 +1384,865 @@ def run_backtest():
         const maStrongBuyData = {json_ma_strong_buy};
         const maLongData = {json_ma_long};
         
-        // Ribbon Data (Python Calculated)
         const ribbons = {json_ribbons};
         const ribbonsPast = {json_ribbons_past};
         const futureData = {json_future};
         const pastData = {json_past};
 
-        if (typeof LightweightCharts === 'undefined') {{
-            document.getElementById('container').innerHTML = '<h2 style="color:red; text-align:center; padding:20px;">Error: Lightweight Charts library failed to load. Check internet connection or CDN URL.</h2>';
-            console.error('LightweightCharts is undefined');
-        }}
-
-        console.log('OHLC Data Length:', ohlcData.length);
-        console.log('Equity Data Length:', equityData.length);
-
-        // --- Price Chart ---
+        // Price Chart
         const priceContainer = document.getElementById('chart-price');
         const priceChart = LightweightCharts.createChart(priceContainer, {{
-            layout: {{ background: {{ color: '#131722' }}, textColor: '#d1d4dc' }},
-            grid: {{ vertLines: {{ color: '#2a2e39' }}, horzLines: {{ color: '#2a2e39' }} }},
-            timeScale: {{ borderColor: '#2a2e39', timeVisible: true }},
-            rightPriceScale: {{ borderColor: '#2a2e39', mode: LightweightCharts.PriceScaleMode.Logarithmic }}, // Default Log
+            localization: {{ locale: 'en-US' }},
+            layout: {{ background: {{ color: 'transparent' }}, textColor: '#9ca3af' }},
+            grid: {{ vertLines: {{ color: '#1f2937' }}, horzLines: {{ color: '#1f2937' }} }},
+            timeScale: {{ borderColor: '#374151', timeVisible: true }},
+            rightPriceScale: {{ borderColor: '#374151', mode: LightweightCharts.PriceScaleMode.Logarithmic }},
+            crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }}
         }});
 
-        // GDCA Zone Lines (Ribbon & Boundaries)
-        
-        // Helper to Draw Pre-calculated Ribbon
-        function drawRibbon(ribbonLists, boundaryData, colorHex, boundaryTitle, style) {{
-            // Default style 0 (Solid)
+        // Zone Ribbons
+        const steps = 10;
+        function drawRibbon(ribbonLists, boundaryData, colorHex, style) {{
             const lineStyle = style !== undefined ? style : 0;
-            
-            // Draw Intermediate Lines
             if (ribbonLists) {{
                 for (const lineData of ribbonLists) {{
                     const lineSeries = priceChart.addLineSeries({{
-                        color: colorHex, 
-                        lineWidth: 1, 
-                        crosshairMarkerVisible: false,
-                        priceLineVisible: false,
-                        lastValueVisible: false,
-                        lineStyle: lineStyle
+                        color: colorHex, lineWidth: 1, 
+                        crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false, lineStyle: lineStyle
                     }});
                     lineSeries.setData(lineData);
                 }}
             }}
-            
-             // Draw Boundary Lines (Top of this zone)
-             // Only draw boundary if boundaryData is provided
-             if (boundaryData) {{
+            if (boundaryData) {{
                 const lineSeries = priceChart.addLineSeries({{
-                    color: colorHex, 
-                    lineWidth: 2, 
-                    title: '', // Hide title per request ("Don't show zone")
-                    lastValueVisible: false, // Hide axis label
-                    lineStyle: lineStyle,
-                    crosshairMarkerVisible: false // Hide crosshair point too? Maybe keep default.
+                    color: colorHex, lineWidth: 2, title: '', lastValueVisible: false, lineStyle: lineStyle, crosshairMarkerVisible: false
                 }});
                 lineSeries.setData(boundaryData);
-                
-                // Add Pointers (Markers) at Start and End per request
-                if (boundaryData.length > 0) {{
-                    const first = boundaryData[0];
-                    const last = boundaryData[boundaryData.length - 1];
-                    lineSeries.setMarkers([
-                        {{ time: first.time, position: 'inBar', color: colorHex, shape: 'circle', size: 1 }},
-                        {{ time: last.time, position: 'inBar', color: colorHex, shape: 'circle', size: 1 }}
-                    ]);
-                }}
-             }}
+            }}
         }}
 
-        // 1. Short Zone
-        drawRibbon(ribbons.short, maShortData, '#801922', 'Short Zone');
+        drawRibbon(ribbons.short, maShortData, '#801922');
+        drawRibbon(ribbons.strong_sell, maStrongSellData, '#b22833');
+        drawRibbon(ribbons.sell, maSellData, '#f57f17');
+        drawRibbon(ribbons.buy, maBuyData, '#1b5e20');
+        drawRibbon(ribbons.long, maStrongBuyData, '#00332a');
         
-        // 2. Strong Sell Zone
-        drawRibbon(ribbons.strong_sell, maStrongSellData, '#b22833', 'Strong Sell');
-        
-        // 3. Sell Zone (Normal)
-        drawRibbon(ribbons.sell, maSellData, '#f57f17', 'Sell (Normal)');
-
-        // 4. Buy Zone
-        drawRibbon(ribbons.buy, maBuyData, '#1b5e20', 'Buy');
-        
-        // 5. Long Zone
-        drawRibbon(ribbons.long, maStrongBuyData, '#00332a', 'Strong Buy');
-        
-        // Bottom-most line (Long) - Draw manually as boundary
-        const lineLong = priceChart.addLineSeries({{ 
-            color: '#00332a', 
-            lineWidth: 2, 
-            title: '', 
-            lastValueVisible: false,
-            crosshairMarkerVisible: false
-        }});
+        const lineLong = priceChart.addLineSeries({{ color: '#00332a', lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false }});
         lineLong.setData(maLongData);
-        if (maLongData && maLongData.length > 0) {{
-             lineLong.setMarkers([
-                 {{ time: maLongData[0].time, position: 'inBar', color: '#00332a', shape: 'circle', size: 1 }},
-                 {{ time: maLongData[maLongData.length - 1].time, position: 'inBar', color: '#00332a', shape: 'circle', size: 1 }}
-             ]);
-        }}
-        
-        // --- Draw Past Ribbons (Projected) ---
+
         if (ribbonsPast) {{
-            const dashed = 2; // LineStyle.Dashed
-            
-            // Note: We don't have separate "Boundary Data" arrays for past, 
-            // but the ribbon structure itself is all we need for visualization?
-            // Actually, drawRibbon expects lists of lines.
-            // Our ribbonsPast contains keys 'short', 'buy' etc. which are lists of lines.
-            // We can just call drawRibbon with boundaryData=null.
-            
-            drawRibbon(ribbonsPast.short, null, '#801922', '', dashed);
-            drawRibbon(ribbonsPast.strong_sell, null, '#b22833', '', dashed);
-            drawRibbon(ribbonsPast.sell, null, '#f57f17', '', dashed);
-            drawRibbon(ribbonsPast.buy, null, '#1b5e20', '', dashed);
-            drawRibbon(ribbonsPast.long, null, '#00332a', '', dashed);
+            drawRibbon(ribbonsPast.short, null, '#801922', 2);
+            drawRibbon(ribbonsPast.strong_sell, null, '#b22833', 2);
+            drawRibbon(ribbonsPast.sell, null, '#f57f17', 2);
+            drawRibbon(ribbonsPast.buy, null, '#1b5e20', 2);
+            drawRibbon(ribbonsPast.long, null, '#00332a', 2);
         }}
-        
-        // --- Future Dates Extension ---
-        // Add an invisible series to force the timeline to extend
+
         if (futureData && futureData.length > 0) {{
-            // Using a LineSeries with transparent color
-            const futureSeries = priceChart.addLineSeries({{
-                color: 'rgba(0,0,0,0)', 
-                lineWidth: 0,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false, 
-                lastValueVisible: false
-            }});
+            const futureSeries = priceChart.addLineSeries({{ color: 'rgba(0,0,0,0)', lineWidth: 0, priceLineVisible: false, lastValueVisible: false }});
             futureSeries.setData(futureData);
         }}
         
-        // --- Past Dates Extension ---
         if (pastData && pastData.length > 0) {{
-             const pastSeries = priceChart.addLineSeries({{
-                color: 'rgba(0,0,0,0)', 
-                lineWidth: 0,
-                crosshairMarkerVisible: false,
-                priceLineVisible: false, 
-                lastValueVisible: false
-             }});
-             pastSeries.setData(pastData);
+            const pastSeries = priceChart.addLineSeries({{ color: 'rgba(0,0,0,0)', lineWidth: 0, priceLineVisible: false, lastValueVisible: false }});
+            pastSeries.setData(pastData);
         }}
-        
-        // --- EMA Lines (Restored) ---
+
         const line12 = priceChart.addLineSeries({{ color: '#f23645', lineWidth: 1, title: 'EMA 12' }});
         line12.setData(ema12Data);
         
         const line26 = priceChart.addLineSeries({{ color: '#2962FF', lineWidth: 1, title: 'EMA 26' }});
         line26.setData(ema26Data);
 
-        // --- Candlesticks (Moved here to be ON TOP of ribbons) ---
         const candleSeries = priceChart.addCandlestickSeries({{
-            upColor: '#089981', downColor: '#f23645', borderVisible: false, wickUpColor: '#089981', wickDownColor: '#f23645'
+            upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444'
         }});
         candleSeries.setData(ohlcData);
         candleSeries.setMarkers(markerData);
 
-
-        // --- Equity Chart ---
+        // Equity Chart
         const equityChart = LightweightCharts.createChart(document.getElementById('chart-equity'), {{
-            width: document.getElementById('chart-equity').clientWidth,
-            height: 500,
-            layout: {{
-                backgroundColor: '#131722',
-                textColor: '#d1d4dc',
-            }},
-            grid: {{
-                vertLines: {{ color: '#2B2B43', style: 1, visible: true }},
-                horzLines: {{ color: '#2B2B43', style: 1, visible: true }},
-            }},
-            rightPriceScale: {{
-                borderColor: 'rgba(197, 203, 206, 0.8)',
-            }},
-            timeScale: {{
-                borderColor: 'rgba(197, 203, 206, 0.8)',
-            }},
-        }});
-        
-        // Resize handler
-        window.addEventListener('resize', () => {{
-            equityChart.resize(document.getElementById('chart-equity').clientWidth, 500);
+            localization: {{ locale: 'en-US' }},
+            layout: {{ background: {{ color: 'transparent' }}, textColor: '#9ca3af' }},
+            grid: {{ vertLines: {{ color: '#1f2937' }}, horzLines: {{ color: '#1f2937' }} }},
+            rightPriceScale: {{ borderColor: '#374151' }},
+            timeScale: {{ borderColor: '#374151' }}
         }});
 
-        // --- GDCA SERIES ---
-
-        // Portfolio Value
         const equitySeries = equityChart.addAreaSeries({{
-            topColor: 'rgba(41, 98, 255, 0.3)', 
-            bottomColor: 'rgba(41, 98, 255, 0)', 
-            lineColor: '#2962FF', 
-            lineWidth: 2,
-            title: 'GDCA Portfolio Value'
+            topColor: '{primary_color}40', bottomColor: '{primary_color}05', lineColor: '{primary_color}', lineWidth: 2
         }});
         equitySeries.setData(equityData);
         
-        // Cash Series
-        const cashSeries = equityChart.addAreaSeries({{
-            topColor: 'rgba(76, 175, 80, 0.5)', 
-            bottomColor: 'rgba(76, 175, 80, 0.05)', 
-            lineColor: '#4CAF50', 
-            lineWidth: 1,
-            title: 'Cash Holdings'
-        }});
-        cashSeries.setData(cashData);
+        {"const cashSeries = equityChart.addAreaSeries({ topColor: '#10b98140', bottomColor: '#10b98105', lineColor: '#10b981', lineWidth: 1 }); cashSeries.setData(cashData);" if is_gdca else ""}
         
-        // Net Invested
-        const bnhSeries = equityChart.addLineSeries({{
-            color: '#FF9800', 
-            lineWidth: 2,
-            lineStyle: 2, 
-            title: 'Net Invested'
-        }});
+        const bnhSeries = equityChart.addLineSeries({{ color: '#f59e0b', lineWidth: 2, lineStyle: 2 }});
         bnhSeries.setData(bnhData);
 
-        // Holdings (Left Axis)
-        const holdingsSeries = equityChart.addAreaSeries({{
-            topColor: 'rgba(255, 235, 59, 0.3)', 
-            bottomColor: 'rgba(255, 235, 59, 0.05)', 
-            lineColor: '#FFEB3B', 
-            lineWidth: 1,
-            title: 'BTC Holdings',
-            priceScaleId: 'left' // Use Left Scale
-        }});
-        holdingsSeries.setData(holdingsData);
-        holdingsSeries.setData(holdingsData);
-        
-        // --- STANDARD DCA SERIES (Merged into Equity Chart) ---
-        const stdDcaSeries = equityChart.addLineSeries({{
-            color: '#9C27B0', // Purple
-            lineWidth: 2,
-            lineStyle: 0, // Solid
-            title: 'Standard DCA Value'
-        }});
-        stdDcaSeries.setData(stdDcaEquityData);
-        
-        // Also plot Invested Capital on Std DCA chart for reference? 
-        // Technically Std DCA Invested should be same as GDCA Invested if logic holds, 
-        // but let's re-use the 'bnhData' (Invested Capital) for context or just leave it clean.
-        // Let's add it for context so user sees the gain.
-        // Removed redundant stdDcaInvestedSeries (bnhSeries covers it)
+        {"const holdingsSeries = equityChart.addAreaSeries({ topColor: '#fbbf2440', bottomColor: '#fbbf2405', lineColor: '#fbbf24', lineWidth: 1, priceScaleId: 'left' }); holdingsSeries.setData(holdingsData);" if is_gdca else ""}
 
-        // --- INDICATORS (On GDCA Chart) ---
-
-        // Helper to add line
-        function addLine(data, color, title, width=1) {{
-            const s = equityChart.addLineSeries({{
-                color: color,
-                lineWidth: width,
-                lineStyle: 0,
-                title: title,
-                crosshairMarkerVisible: false
-            }});
-            s.setData(data);
-            return s;
-        }}
-        
-        addLine(maStrongBuyData, '#00FF00', 'CDC Strong Buy');
-        addLine(maBuyData, '#81C784', 'CDC Buy');
-        addLine(maShortData, '#FFFF00', 'CDC Short');
-        addLine(maLongData, '#ff00ff', 'CDC Long'); 
-        addLine(maSellData, '#E57373', 'CDC Sell');
-        addLine(maStrongSellData, '#FF0000', 'CDC Strong Sell');
-        
-        // Markers on Equity Series or separate? 
-        // Markers usually go on the series they relate to. 
-        // Since we buy/sell BTC, let's put them on the Portfolio Value series or create a phantom series if needed.
         equitySeries.setMarkers(markerData);
-        
-        // Fit Content
         equityChart.timeScale().fitContent();
 
-        // Sync Timescales (Optional but good)
-        // Simple one-way sync attempt or just let them be independent
-        // Keeping independent for simplicity as requested.
-        
-        // --- Sync Charts & Resize ---
+        // Sync Charts
         function syncVisibleRange(source, target) {{
             const visibleRange = source.timeScale().getVisibleRange();
-            if (visibleRange) {{
-                target.timeScale().setVisibleRange(visibleRange);
-            }}
+            if (visibleRange) target.timeScale().setVisibleRange(visibleRange);
         }}
-
         priceChart.timeScale().subscribeVisibleTimeRangeChange(() => syncVisibleRange(priceChart, equityChart));
         equityChart.timeScale().subscribeVisibleTimeRangeChange(() => syncVisibleRange(equityChart, priceChart));
 
-
+        // Resize
         new ResizeObserver(entries => {{
-             for (let entry of entries) {{
-                 const {{ width, height }} = entry.contentRect;
-                 if (entry.target.id === 'chart-price') priceChart.applyOptions({{ width, height }});
-             }}
+            for (let entry of entries) {{
+                const {{ width, height }} = entry.contentRect;
+                if (entry.target.id === 'chart-price') priceChart.applyOptions({{ width, height }});
+                if (entry.target.id === 'chart-equity') equityChart.applyOptions({{ width, height }});
+            }}
         }}).observe(priceContainer);
-        
-        // The equityContainer and stdDcaChart resize are handled by the window resize listener now.
-        // Remove the old equityContainer observer.
-        
-        // --- Order Info Interaction ---
+        new ResizeObserver(entries => {{
+            for (let entry of entries) {{
+                const {{ width, height }} = entry.contentRect;
+                equityChart.applyOptions({{ width, height }});
+            }}
+        }}).observe(document.getElementById('chart-equity'));
+
+        // Tooltips
         const orderInfoEl = document.getElementById('order-info');
-        
-        // Create Map for O(1) lookup
+        const tooltipPrice = document.getElementById('tooltip-price');
+        const tooltipEquity = document.getElementById('tooltip-equity');
         const markerMap = new Map();
-        if (markerData) {{
-            markerData.forEach(m => markerMap.set(m.time, m));
-        }}
+        if (markerData) markerData.forEach(m => markerMap.set(m.time, m));
         
+        // Create data maps for O(1) lookup
+        const ohlcMap = new Map();
+        ohlcData.forEach(d => ohlcMap.set(d.time, d));
+        const equityMap = new Map();
+        equityData.forEach(d => equityMap.set(d.time, d));
+        const bnhMap = new Map();
+        bnhData.forEach(d => bnhMap.set(d.time, d));
+        const cashMap = new Map();
+        cashData.forEach(d => cashMap.set(d.time, d));
+        const holdingsMap = new Map();
+        holdingsData.forEach(d => holdingsMap.set(d.time, d));
+        
+        // Price Chart Crosshair
         priceChart.subscribeCrosshairMove(param => {{
             if (!param.time) {{
-                orderInfoEl.innerHTML = '-';
+                tooltipPrice.style.display = 'none';
+                orderInfoEl.innerHTML = 'Hover over chart';
                 return;
             }}
             
+            const ohlc = ohlcMap.get(param.time);
+            if (ohlc) {{
+                const date = new Date(param.time * 1000);
+                const dateStr = date.toLocaleDateString('en-US', {{calendar: 'gregory', month: 'short', day: 'numeric', year: 'numeric'}});
+                const change = ((ohlc.close - ohlc.open) / ohlc.open * 100);
+                const changeClass = change >= 0 ? 'green' : 'red';
+                tooltipPrice.innerHTML = `
+                    <div class="tp-row"><span class="tp-label">Date</span><span class="tp-value">${{dateStr}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Open</span><span class="tp-value">${{ohlc.open.toLocaleString('en-US', {{minimumFractionDigits: 2}})}}</span></div>
+                    <div class="tp-row"><span class="tp-label">High</span><span class="tp-value">${{ohlc.high.toLocaleString('en-US', {{minimumFractionDigits: 2}})}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Low</span><span class="tp-value">${{ohlc.low.toLocaleString('en-US', {{minimumFractionDigits: 2}})}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Close</span><span class="tp-value">${{ohlc.close.toLocaleString('en-US', {{minimumFractionDigits: 2}})}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Change</span><span class="tp-value ${{changeClass}}">${{change >= 0 ? '+' : ''}}${{change.toFixed(2)}}%</span></div>
+                `;
+                tooltipPrice.style.display = 'block';
+            }} else {{
+                tooltipPrice.style.display = 'none';
+            }}
+            
+            // Order info
             const marker = markerMap.get(param.time);
             if (marker) {{
                 orderInfoEl.innerHTML = marker.tooltip;
-                orderInfoEl.style.color = marker.color; // Use marker color (Red/Blue)
+                orderInfoEl.style.color = marker.color;
             }} else {{
-                // Optional: Keep last separate, or clear. clearing is cleaner.
                 orderInfoEl.innerHTML = '-';
-                orderInfoEl.style.color = '#64b5f6'; // Reset to default
+                orderInfoEl.style.color = '{primary_color}';
             }}
         }});
         
-        // Auto-fit handled by zoomOutFull()
+        // Equity Chart Crosshair
+        equityChart.subscribeCrosshairMove(param => {{
+            if (!param.time) {{
+                tooltipEquity.style.display = 'none';
+                return;
+            }}
+            
+            const equity = equityMap.get(param.time);
+            const bnh = bnhMap.get(param.time);
+            const cash = cashMap.get(param.time);
+            const holdings = holdingsMap.get(param.time);
+            
+            if (equity) {{
+                const date = new Date(param.time * 1000);
+                const dateStr = date.toLocaleDateString('en-US', {{calendar: 'gregory', month: 'short', day: 'numeric', year: 'numeric'}});
+                const invested = bnh ? bnh.value : 0;
+                const profit = equity.value - invested;
+                const profitClass = profit >= 0 ? 'green' : 'red';
+                
+                let html = `
+                    <div class="tp-row"><span class="tp-label">Date</span><span class="tp-value">${{dateStr}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Portfolio</span><span class="tp-value">${{equity.value.toLocaleString('en-US', {{style: 'currency', currency: 'USD'}})}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Invested</span><span class="tp-value">${{invested.toLocaleString('en-US', {{style: 'currency', currency: 'USD'}})}}</span></div>
+                    <div class="tp-row"><span class="tp-label">Profit</span><span class="tp-value ${{profitClass}}">${{profit.toLocaleString('en-US', {{style: 'currency', currency: 'USD'}})}}</span></div>
+                `;
+                if (cash && cash.value > 0) {{
+                    html += `<div class="tp-row"><span class="tp-label">Cash</span><span class="tp-value">${{cash.value.toLocaleString('en-US', {{style: 'currency', currency: 'USD'}})}}</span></div>`;
+                }}
+                if (holdings && holdings.value > 0) {{
+                    html += `<div class="tp-row"><span class="tp-label">BTC</span><span class="tp-value">${{holdings.value.toFixed(4)}} BTC</span></div>`;
+                }}
+                tooltipEquity.innerHTML = html;
+                tooltipEquity.style.display = 'block';
+            }} else {{
+                tooltipEquity.style.display = 'none';
+            }}
+        }});
 
-        // --- Log Scale Toggle ---
+        // Controls
         const btnLog = document.getElementById('btn-log');
-        let isLog = true; // Default ON
-        
-        // Initial Button State
-        btnLog.innerText = 'Log Scale: ' + (isLog ? 'ON' : 'OFF');
-        btnLog.style.background = isLog ? '#ff9800' : '#2962FF'; 
-        
+        let isLog = true;
         btnLog.addEventListener('click', () => {{
             isLog = !isLog;
-            const mode = isLog ? LightweightCharts.PriceScaleMode.Logarithmic : LightweightCharts.PriceScaleMode.Normal;
-            priceChart.priceScale('right').applyOptions({{ mode: mode }});
-            btnLog.innerText = 'Log Scale: ' + (isLog ? 'ON' : 'OFF');
-            btnLog.style.background = isLog ? '#ff9800' : '#2962FF'; 
+            priceChart.priceScale('right').applyOptions({{ mode: isLog ? LightweightCharts.PriceScaleMode.Logarithmic : LightweightCharts.PriceScaleMode.Normal }});
+            btnLog.classList.toggle('active', isLog);
+            btnLog.innerText = isLog ? 'Log Scale' : 'Linear';
         }});
-
-        // --- Reset Zoom / Zoom Out 100% ---
-        const btnReset = document.getElementById('btn-reset');
         
-        function zoomOutFull() {{
-            // Calculate the absolute min and max time across all datasets
-            let minTime = Infinity;
-            let maxTime = -Infinity;
-            
-            const checkData = (data) => {{
-                if (data && data.length > 0) {{
-                    const first = data[0].time;
-                    const last = data[data.length - 1].time;
-                    if (first < minTime) minTime = first;
-                    if (last > maxTime) maxTime = last;
-                }}
-            }};
-            
-            // Only fit to OHLC data (Trade Data), ignoring past/future invisible extensions
-            checkData(ohlcData);
-            
-            if (minTime !== Infinity && maxTime !== -Infinity) {{
-                // Apply a small buffer if needed, or set exact range
-                priceChart.timeScale().setVisibleRange({{ from: minTime, to: maxTime }});
-            }} else {{
-                priceChart.timeScale().fitContent();
+        document.getElementById('btn-reset').addEventListener('click', () => {{
+            if (ohlcData.length > 0) {{
+                priceChart.timeScale().setVisibleRange({{ from: ohlcData[0].time, to: ohlcData[ohlcData.length - 1].time }});
             }}
-        }}
-
-        btnReset.addEventListener('click', zoomOutFull);
+        }});
         
-        // Initial Zoom
-        // Timeout to ensure chart is fully rendered before setting range
-        setTimeout(zoomOutFull, 100);
-
+        setTimeout(() => {{
+            if (ohlcData.length > 0) {{
+                priceChart.timeScale().setVisibleRange({{ from: ohlcData[0].time, to: ohlcData[ohlcData.length - 1].time }});
+            }}
+        }}, 100);
     </script>
 </body>
-</html>
-    """
+</html>'''
+
+    def generate_comparison_html(
+        gdca_metrics: dict,
+        dca_metrics: dict,
+        json_equity_gdca: str,
+        json_equity_dca: str,
+        json_bnh: str
+    ) -> str:
+        """Generate HTML for side-by-side comparison."""
+        
+        # Determine winner
+        gdca_roi = gdca_metrics.get('roi', 0)
+        dca_roi = dca_metrics.get('std_dca_roi', 0)
+        gdca_wins = gdca_roi > dca_roi
+        
+        return f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>Strategy Comparison | GDCA vs Standard DCA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #111827 100%);
+            color: #e1e5eb;
+            min-height: 100vh;
+            padding: 24px;
+        }}
+        
+        .header {{
+            text-align: center;
+            margin-bottom: 30px;
+        }}
+        
+        .header h1 {{
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        
+        .comparison-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }}
+        
+        .strategy-card {{
+            background: rgba(30, 35, 50, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+            transition: all 0.3s ease;
+        }}
+        
+        .strategy-card:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }}
+        
+        .strategy-card.gdca {{ border-top: 3px solid #3b82f6; }}
+        .strategy-card.dca {{ border-top: 3px solid #8b5cf6; }}
+        
+        .strategy-card.winner {{
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.3);
+        }}
+        
+        .winner-badge {{
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        
+        .strategy-title {{
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        
+        .strategy-title.gdca {{ color: #3b82f6; }}
+        .strategy-title.dca {{ color: #8b5cf6; }}
+        
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }}
+        
+        .metric {{
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            padding: 14px;
+        }}
+        
+        .metric-label {{
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }}
+        
+        .metric-value {{
+            font-size: 18px;
+            font-weight: 600;
+        }}
+        
+        .metric-value.green {{ color: #10b981; }}
+        .metric-value.red {{ color: #ef4444; }}
+        
+        .chart-section {{
+            background: rgba(20, 24, 35, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }}
+        
+        .chart-section h3 {{
+            font-size: 16px;
+            font-weight: 500;
+            color: #9ca3af;
+            margin-bottom: 16px;
+        }}
+        
+        .charts-row {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 300px;
+        }}
+        
+        .chart-box {{
+            background: rgba(15, 18, 25, 0.6);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }}
+        
+        .chart-label {{
+            position: absolute;
+            top: 10px;
+            left: 14px;
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 10;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.5);
+        }}
+        
+        .chart-label.gdca {{ color: #3b82f6; }}
+        .chart-label.dca {{ color: #8b5cf6; }}
+        
+        #chart-gdca, #chart-dca, #chart-overlay {{ width: 100%; height: 100%; }}
+        
+        .overlay-section {{
+            height: 350px;
+        }}
+        
+        #chart-overlay {{ height: 300px; }}
+        
+        .tooltip-panel {{
+            position: absolute;
+            top: 35px;
+            left: 14px;
+            background: rgba(20, 24, 35, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 14px;
+            z-index: 20;
+            font-size: 12px;
+            min-width: 180px;
+            pointer-events: none;
+        }}
+        
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Strategy Comparison</h1>
+        <p style="color: #6b7280; margin-top: 8px;">GDCA vs Standard DCA • BTC/USD</p>
+    </div>
     
-    with open('backtest_result.html', 'w') as f:
-        f.write(html_template)
+    <div class="comparison-grid">
+        <div class="strategy-card gdca {'winner' if gdca_wins else ''}">
+            {'<div class="winner-badge">🏆 WINNER</div>' if gdca_wins else ''}
+            <div class="strategy-title gdca">📈 GDCA Strategy</div>
+            <div class="metrics-grid">
+                <div class="metric">
+                    <div class="metric-label">Total Invested</div>
+                    <div class="metric-value">${gdca_metrics['total_invested']:,.0f}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Current Value</div>
+                    <div class="metric-value">${gdca_metrics['total_equity']:,.0f}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Net Profit</div>
+                    <div class="metric-value {'green' if gdca_metrics['net_profit'] >= 0 else 'red'}">${gdca_metrics['net_profit']:,.0f}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">ROI</div>
+                    <div class="metric-value {'green' if gdca_metrics['roi'] >= 0 else 'red'}">{gdca_metrics['roi']:+.1f}%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Max Drawdown</div>
+                    <div class="metric-value red">{gdca_metrics['max_drawdown']:.1f}%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">BTC Holdings</div>
+                    <div class="metric-value">{gdca_metrics['total_btc']:.4f}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="strategy-card dca {'winner' if not gdca_wins else ''}">
+            {'<div class="winner-badge">🏆 WINNER</div>' if not gdca_wins else ''}
+            <div class="strategy-title dca">📊 Standard DCA</div>
+            <div class="metrics-grid">
+                <div class="metric">
+                    <div class="metric-label">Total Invested</div>
+                    <div class="metric-value">${dca_metrics['std_dca_invested']:,.0f}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Current Value</div>
+                    <div class="metric-value">${dca_metrics['std_dca_equity']:,.0f}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Net Profit</div>
+                    <div class="metric-value {'green' if dca_metrics['std_dca_profit'] >= 0 else 'red'}">${dca_metrics['std_dca_profit']:,.0f}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">ROI</div>
+                    <div class="metric-value {'green' if dca_metrics['std_dca_roi'] >= 0 else 'red'}">{dca_metrics['std_dca_roi']:+.1f}%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Max Drawdown</div>
+                    <div class="metric-value red">{dca_metrics['std_dca_max_drawdown']:.1f}%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Strategy</div>
+                    <div class="metric-value" style="font-size: 14px;">Fixed Monthly Buy</div>
+                </div>
+            </div>
+        </div>
+    </div>
     
-    print(f"Visualization saved to backtest_result.html")
+    <div class="chart-section">
+        <h3>📈 Individual Performance</h3>
+        <div class="charts-row">
+            <div class="chart-box">
+                <div class="chart-label gdca">GDCA Portfolio</div>
+                <div id="tooltip-gdca" class="tooltip-panel" style="display:none;"></div>
+                <div id="chart-gdca"></div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-label dca">Standard DCA Portfolio</div>
+                <div id="tooltip-dca" class="tooltip-panel" style="display:none;"></div>
+                <div id="chart-dca"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="chart-section overlay-section">
+        <h3>🔄 Combined Overlay</h3>
+        <div id="tooltip-overlay" class="tooltip-panel" style="display:none;"></div>
+        <div id="chart-overlay"></div>
+    </div>
+
+    <script>
+        const equityGdca = {json_equity_gdca};
+        const equityDca = {json_equity_dca};
+        const bnhData = {json_bnh};
+
+        const chartOptions = {{
+            localization: {{ locale: 'en-US' }},
+            layout: {{ background: {{ color: 'transparent' }}, textColor: '#9ca3af' }},
+            grid: {{ vertLines: {{ color: '#1f2937' }}, horzLines: {{ color: '#1f2937' }} }},
+            rightPriceScale: {{ borderColor: '#374151' }},
+            timeScale: {{ borderColor: '#374151' }}
+        }};
+
+        // GDCA Chart
+        const gdcaChart = LightweightCharts.createChart(document.getElementById('chart-gdca'), chartOptions);
+        const gdcaSeries = gdcaChart.addAreaSeries({{
+            topColor: '#3b82f640', bottomColor: '#3b82f605', lineColor: '#3b82f6', lineWidth: 2
+        }});
+        gdcaSeries.setData(equityGdca);
+        const gdcaBnh = gdcaChart.addLineSeries({{ color: '#f59e0b', lineWidth: 1, lineStyle: 2 }});
+        gdcaBnh.setData(bnhData);
+        gdcaChart.timeScale().fitContent();
+
+        // DCA Chart
+        const dcaChart = LightweightCharts.createChart(document.getElementById('chart-dca'), chartOptions);
+        const dcaSeries = dcaChart.addAreaSeries({{
+            topColor: '#8b5cf640', bottomColor: '#8b5cf605', lineColor: '#8b5cf6', lineWidth: 2
+        }});
+        dcaSeries.setData(equityDca);
+        const dcaBnh = dcaChart.addLineSeries({{ color: '#f59e0b', lineWidth: 1, lineStyle: 2 }});
+        dcaBnh.setData(bnhData);
+        dcaChart.timeScale().fitContent();
+
+        // Overlay Chart
+        const overlayChart = LightweightCharts.createChart(document.getElementById('chart-overlay'), chartOptions);
+        const overlayGdca = overlayChart.addLineSeries({{ color: '#3b82f6', lineWidth: 2, title: 'GDCA' }});
+        overlayGdca.setData(equityGdca);
+        const overlayDca = overlayChart.addLineSeries({{ color: '#8b5cf6', lineWidth: 2, title: 'Standard DCA' }});
+        overlayDca.setData(equityDca);
+        const overlayBnh = overlayChart.addLineSeries({{ color: '#f59e0b', lineWidth: 1, lineStyle: 2, title: 'Invested' }});
+        overlayBnh.setData(bnhData);
+        overlayChart.timeScale().fitContent();
+
+        // Sync all charts
+        function syncCharts(source, targets) {{
+            const range = source.timeScale().getVisibleRange();
+            if (range) targets.forEach(t => t.timeScale().setVisibleRange(range));
+        }}
+        
+        gdcaChart.timeScale().subscribeVisibleTimeRangeChange(() => syncCharts(gdcaChart, [dcaChart, overlayChart]));
+        dcaChart.timeScale().subscribeVisibleTimeRangeChange(() => syncCharts(dcaChart, [gdcaChart, overlayChart]));
+        overlayChart.timeScale().subscribeVisibleTimeRangeChange(() => syncCharts(overlayChart, [gdcaChart, dcaChart]));
+
+        // Resize
+        new ResizeObserver(() => {{
+            const gdcaEl = document.getElementById('chart-gdca');
+            const dcaEl = document.getElementById('chart-dca');
+            const overlayEl = document.getElementById('chart-overlay');
+            gdcaChart.applyOptions({{ width: gdcaEl.clientWidth, height: gdcaEl.clientHeight }});
+            dcaChart.applyOptions({{ width: dcaEl.clientWidth, height: dcaEl.clientHeight }});
+            overlayChart.applyOptions({{ width: overlayEl.clientWidth, height: overlayEl.clientHeight }});
+        }}).observe(document.body);
+        
+        // Tooltips
+        const tooltipGdca = document.getElementById('tooltip-gdca');
+        const tooltipDca = document.getElementById('tooltip-dca');
+        const tooltipOverlay = document.getElementById('tooltip-overlay');
+        
+        // Data maps for O(1) lookup
+        const gdcaMap = new Map();
+        equityGdca.forEach(d => gdcaMap.set(d.time, d));
+        const dcaMap = new Map();
+        equityDca.forEach(d => dcaMap.set(d.time, d));
+        const bnhMap = new Map();
+        bnhData.forEach(d => bnhMap.set(d.time, d));
+        
+        function formatTooltip(date, value, invested, label) {{
+            const profit = value - invested;
+            const profitClass = profit >= 0 ? 'green' : 'red';
+            const roi = invested > 0 ? ((value - invested) / invested * 100) : 0;
+            return `
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#6b7280;">Date</span><span style="color:#f3f4f6;font-weight:500;">${{date}}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#6b7280;">${{label}}</span><span style="color:#f3f4f6;font-weight:500;">${{value.toLocaleString('en-US', {{style:'currency',currency:'USD'}})}}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#6b7280;">Invested</span><span style="color:#f3f4f6;font-weight:500;">${{invested.toLocaleString('en-US', {{style:'currency',currency:'USD'}})}}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#6b7280;">Profit</span><span style="color:${{profit >= 0 ? '#10b981' : '#ef4444'}};font-weight:500;">${{profit.toLocaleString('en-US', {{style:'currency',currency:'USD'}})}}</span></div>
+                <div style="display:flex;justify-content:space-between;"><span style="color:#6b7280;">ROI</span><span style="color:${{roi >= 0 ? '#10b981' : '#ef4444'}};font-weight:500;">${{roi >= 0 ? '+' : ''}}${{roi.toFixed(2)}}%</span></div>
+            `;
+        }}
+        
+        // GDCA Chart Crosshair
+        gdcaChart.subscribeCrosshairMove(param => {{
+            if (!param.time) {{ tooltipGdca.style.display = 'none'; return; }}
+            const gdca = gdcaMap.get(param.time);
+            const bnh = bnhMap.get(param.time);
+            if (gdca) {{
+                const date = new Date(param.time * 1000).toLocaleDateString('en-US', {{calendar: 'gregory', month:'short',day:'numeric',year:'numeric'}});
+                tooltipGdca.innerHTML = formatTooltip(date, gdca.value, bnh ? bnh.value : 0, 'GDCA Value');
+                tooltipGdca.style.display = 'block';
+            }} else {{ tooltipGdca.style.display = 'none'; }}
+        }});
+        
+        // DCA Chart Crosshair
+        dcaChart.subscribeCrosshairMove(param => {{
+            if (!param.time) {{ tooltipDca.style.display = 'none'; return; }}
+            const dca = dcaMap.get(param.time);
+            const bnh = bnhMap.get(param.time);
+            if (dca) {{
+                const date = new Date(param.time * 1000).toLocaleDateString('en-US', {{calendar: 'gregory', month:'short',day:'numeric',year:'numeric'}});
+                tooltipDca.innerHTML = formatTooltip(date, dca.value, bnh ? bnh.value : 0, 'DCA Value');
+                tooltipDca.style.display = 'block';
+            }} else {{ tooltipDca.style.display = 'none'; }}
+        }});
+        
+        // Overlay Chart Crosshair
+        overlayChart.subscribeCrosshairMove(param => {{
+            if (!param.time) {{ tooltipOverlay.style.display = 'none'; return; }}
+            const gdca = gdcaMap.get(param.time);
+            const dca = dcaMap.get(param.time);
+            const bnh = bnhMap.get(param.time);
+            if (gdca || dca) {{
+                const date = new Date(param.time * 1000).toLocaleDateString('en-US', {{calendar: 'gregory', month:'short',day:'numeric',year:'numeric'}});
+                const invested = bnh ? bnh.value : 0;
+                let html = `<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:#6b7280;">Date</span><span style="color:#f3f4f6;font-weight:500;">${{date}}</span></div>`;
+                if (gdca) {{
+                    const profit = gdca.value - invested;
+                    html += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#3b82f6;">● GDCA</span><span style="color:#f3f4f6;font-weight:500;">${{gdca.value.toLocaleString('en-US', {{style:'currency',currency:'USD'}})}}</span></div>`;
+                }}
+                if (dca) {{
+                    html += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#8b5cf6;">● DCA</span><span style="color:#f3f4f6;font-weight:500;">${{dca.value.toLocaleString('en-US', {{style:'currency',currency:'USD'}})}}</span></div>`;
+                }}
+                html += `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">● Invested</span><span style="color:#f3f4f6;font-weight:500;">${{invested.toLocaleString('en-US', {{style:'currency',currency:'USD'}})}}</span></div>`;
+                tooltipOverlay.innerHTML = html;
+                tooltipOverlay.style.display = 'block';
+            }} else {{ tooltipOverlay.style.display = 'none'; }}
+        }});
+        
+        // Resize
+        new ResizeObserver(() => {{
+            const gdcaEl = document.getElementById('chart-gdca');
+            const dcaEl = document.getElementById('chart-dca');
+            const overlayEl = document.getElementById('chart-overlay');
+            gdcaChart.applyOptions({{ width: gdcaEl.clientWidth, height: gdcaEl.clientHeight }});
+            dcaChart.applyOptions({{ width: dcaEl.clientWidth, height: dcaEl.clientHeight }});
+            overlayChart.applyOptions({{ width: overlayEl.clientWidth, height: overlayEl.clientHeight }});
+        }}).observe(document.body);
+        
+    </script>
+</body>
+</html>'''
+
+    # ========================================
+    # GENERATE ALL HTML FILES
+    # ========================================
+    
+    # GDCA Metrics for template
+    gdca_metrics = {
+        'total_invested': total_invested,
+        'total_equity': total_equity,
+        'net_profit': profit_usd,
+        'roi': roi_pct,
+        'max_drawdown': max_dd_pct,
+        'total_btc': total_btc,
+        'total_trades': total_trades,
+        'win_rate': win_rate_pct
+    }
+    
+    # DCA Metrics for template
+    dca_metrics = {
+        'std_dca_invested': std_dca_invested,
+        'std_dca_equity': std_dca_current_value,
+        'std_dca_profit': std_dca_net_profit,
+        'std_dca_roi': std_dca_roi,
+        'std_dca_max_drawdown': std_dca_max_dd_pct
+    }
+    
+    # Generate GDCA HTML
+    gdca_html = generate_strategy_html(
+        strategy_name="GDCA Strategy",
+        strategy_color="#3b82f6",
+        metrics=gdca_metrics,
+        json_ohlc=json_ohlc,
+        json_equity=json_equity,
+        json_bnh=json_bnh,
+        json_cash=json_cash,
+        json_holdings=json_holdings,
+        json_markers=json_markers,
+        json_ema12=json_ema12,
+        json_ema26=json_ema26,
+        json_ribbons=json_ribbons,
+        json_ribbons_past=json_ribbons_past,
+        json_future=json_future,
+        json_past=json_past,
+        json_ma_short=json_ma_short,
+        json_ma_strong_sell=json_ma_strong_sell,
+        json_ma_sell=json_ma_sell,
+        json_ma_buy=json_ma_buy,
+        json_ma_strong_buy=json_ma_strong_buy,
+        json_ma_long=json_ma_long,
+        is_gdca=True
+    )
+    
+    with open('gdca_result.html', 'w', encoding='utf-8') as f:
+        f.write(gdca_html)
+    print("Generated: gdca_result.html")
+    
+    # Generate DCA HTML
+    dca_html = generate_strategy_html(
+        strategy_name="Standard DCA",
+        strategy_color="#8b5cf6",
+        metrics=dca_metrics,
+        json_ohlc=json_ohlc,
+        json_equity=json_std_dca_equity,
+        json_bnh=json_bnh,
+        json_cash="[]",
+        json_holdings="[]",
+        json_markers="[]",
+        json_ema12=json_ema12,
+        json_ema26=json_ema26,
+        json_ribbons=json_ribbons,
+        json_ribbons_past=json_ribbons_past,
+        json_future=json_future,
+        json_past=json_past,
+        json_ma_short=json_ma_short,
+        json_ma_strong_sell=json_ma_strong_sell,
+        json_ma_sell=json_ma_sell,
+        json_ma_buy=json_ma_buy,
+        json_ma_strong_buy=json_ma_strong_buy,
+        json_ma_long=json_ma_long,
+        is_gdca=False
+    )
+    
+    with open('dca_result.html', 'w', encoding='utf-8') as f:
+        f.write(dca_html)
+    print("Generated: dca_result.html")
+    
+    # Generate Comparison HTML
+    comparison_html = generate_comparison_html(
+        gdca_metrics=gdca_metrics,
+        dca_metrics=dca_metrics,
+        json_equity_gdca=json_equity,
+        json_equity_dca=json_std_dca_equity,
+        json_bnh=json_bnh
+    )
+    
+    with open('comparison_result.html', 'w', encoding='utf-8') as f:
+        f.write(comparison_html)
+    print("Generated: comparison_result.html")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+            
+
+
+
+
+
+
+        
+
+
+
 
 
 if __name__ == "__main__":

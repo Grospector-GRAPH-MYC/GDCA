@@ -1,7 +1,3 @@
-# User requested
-catalog/
-backtest_result.html
-
 # Logs
 *.log
 run_log.txt
