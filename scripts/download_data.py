@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import argparse
 import sys
+import shutil
 
 from nautilus_trader.model.data import Bar, BarType, BarSpecification, TradeTick, QuoteTick
 from nautilus_trader.model.enums import BarAggregation, PriceType
@@ -18,7 +19,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from config.settings import settings
 
-def download_and_catalog(symbol_str="BTC/USD", venue_str="BITSTAMP", timeframe="1d", start_date="2011-01-01", data_type="bar", incremental=False):
+def download_and_catalog(symbol_str="BTC/USD", venue_str="BITSTAMP", timeframe="1d", start_date="2011-01-01", data_type="bar", incremental=False, force_fresh=False):
     exchange = ccxt.bitstamp()
     
     # Parse symbol
@@ -28,13 +29,18 @@ def download_and_catalog(symbol_str="BTC/USD", venue_str="BITSTAMP", timeframe="
     instrument_id = InstrumentId(symbol, venue)
     
     catalog_path = Path("catalog")
+    
+    if force_fresh and catalog_path.exists():
+        print("Forced fresh download: Removing existing catalog...")
+        shutil.rmtree(catalog_path)
+    
     catalog = ParquetDataCatalog(catalog_path)
     
     # Default start timestamp
     since_ts = exchange.parse8601(f"{start_date}T00:00:00Z")
     
     # Check for incremental update
-    if incremental and data_type == "bar":
+    if incremental and data_type == "bar" and not force_fresh:
         # Construct BarType to query catalog
         agg_map = {
             '1s': BarAggregation.SECOND,
@@ -192,6 +198,7 @@ def download_and_catalog(symbol_str="BTC/USD", venue_str="BITSTAMP", timeframe="
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download and catalog market data.')
     parser.add_argument('--incremental', action='store_true', help='Download only new data since last existing bar')
+    parser.add_argument('--force-fresh', action='store_true', help='Wipe catalog and download fresh')
     args = parser.parse_args()
 
     # CI/CD / Env Var Configuration via Settings
@@ -201,5 +208,6 @@ if __name__ == "__main__":
         timeframe=settings.DATA_TIMEFRAME,
         start_date=settings.DATA_START_DATE,
         data_type=settings.DATA_TYPE,
-        incremental=args.incremental
+        incremental=args.incremental,
+        force_fresh=args.force_fresh
     )

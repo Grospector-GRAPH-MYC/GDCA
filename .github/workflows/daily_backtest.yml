@@ -3,9 +3,12 @@ on:
     # Run at 00:00 UTC every day
     - cron: '0 0 * * *'
   workflow_dispatch:
-  push:
-    branches:
-      - main
+    inputs:
+      force_fresh:
+        description: 'Force fresh download (clear catalog)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -36,7 +39,12 @@ jobs:
         id: download
         run: |
           # Capture output to check for update
-          OUTPUT=$(poetry run python scripts/download_data.py --incremental)
+          FORCE_ARG=""
+          if [[ "${{ github.event.inputs.force_fresh }}" == "true" ]]; then
+            FORCE_ARG="--force-fresh"
+          fi
+          
+          OUTPUT=$(poetry run python scripts/download_data.py --incremental $FORCE_ARG)
           echo "$OUTPUT"
           
           if echo "$OUTPUT" | grep -q "DATA_UPDATED"; then
