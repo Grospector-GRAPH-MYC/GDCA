@@ -1623,7 +1623,62 @@ def run_backtest():
                 priceChart.timeScale().setVisibleRange({{ from: ohlcData[0].time, to: ohlcData[ohlcData.length - 1].time }});
             }}
         }}, 100);
-    </script>
+        <div class="footer">
+            <div class="brand">
+                <span class="project-name">M Y C</span>
+                <span class="divider"></span>
+                <span class="creator">G R A P H</span>
+            </div>
+            <div class="system-info">
+                Enterprise Edition Ready • Powered by Nautilus Trader
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 24px;
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .project-name {
+            background: linear-gradient(90deg, #fff, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 13px;
+        }
+
+        .creator {
+            color: #4b5563;
+            font-size: 11px;
+        }
+
+        .divider {
+            width: 3px;
+            height: 3px;
+            background: #4b5563;
+            border-radius: 50%;
+        }
+
+        .system-info {
+            color: #4b5563;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+        }
+    </style>
 </body>
 </html>'''
 
@@ -2064,7 +2119,62 @@ def run_backtest():
             overlayChart.applyOptions({{ width: overlayEl.clientWidth, height: overlayEl.clientHeight }});
         }}).observe(document.body);
         
-    </script>
+        <div class="footer">
+            <div class="brand">
+                <span class="project-name">M Y C</span>
+                <span class="divider"></span>
+                <span class="creator">G R A P H</span>
+            </div>
+            <div class="system-info">
+                Enterprise Edition Ready • Powered by Nautilus Trader
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 24px;
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .project-name {
+            background: linear-gradient(90deg, #fff, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 13px;
+        }
+
+        .creator {
+            color: #4b5563;
+            font-size: 11px;
+        }
+
+        .divider {
+            width: 3px;
+            height: 3px;
+            background: #4b5563;
+            border-radius: 50%;
+        }
+
+        .system-info {
+            color: #4b5563;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+        }
+    </style>
 </body>
 </html>'''
 
