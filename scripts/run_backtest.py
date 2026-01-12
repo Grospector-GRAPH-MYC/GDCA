@@ -1319,28 +1319,28 @@ def run_backtest():
         <div class="metrics-panel">
             <div class="metric-card">
                 <div class="metric-label">Total Invested</div>
-                <div class="metric-value">${invested:,.2f}</div>
+                <div class="metric-value">${{invested:,.2f}}</div>
             </div>
             
             <div class="metric-card">
                 <div class="metric-label">Current Value</div>
-                <div class="metric-value">${value:,.2f}</div>
+                <div class="metric-value">${{value:,.2f}}</div>
             </div>
             
             <div class="metric-card">
                 <div class="metric-label">Net Profit</div>
-                <div class="metric-value {profit_class}">${profit:,.2f}</div>
-                <div class="metric-sub {profit_class}">{roi:+.2f}% ROI</div>
+                <div class="metric-value {profit_class}">${{profit:,.2f}}</div>
+                <div class="metric-sub {profit_class}">{{roi:+.2f}}% ROI</div>
             </div>
             
             <div class="metric-card">
                 <div class="metric-label">Max Drawdown</div>
-                <div class="metric-value red">{max_dd:.2f}%</div>
+                <div class="metric-value red">{{max_dd:.2f}}%</div>
             </div>
             
-            {"<div class='metric-card'><div class='metric-label'>BTC Holdings</div><div class='metric-value'>" + f"{btc_held:.8f}" + " BTC</div></div>" if is_gdca else ""}
+            {{"<div class='metric-card'><div class='metric-label'>BTC Holdings</div><div class='metric-value'>" + f"{{btc_held:.8f}}" + " BTC</div></div>" if is_gdca else ""}}
             
-            {"<div class='metric-card'><div class='metric-label'>Total Trades</div><div class='metric-value'>" + str(trades) + "</div></div>" if is_gdca else ""}
+            {{"<div class='metric-card'><div class='metric-label'>Total Trades</div><div class='metric-value'>" + str(trades) + "</div></div>" if is_gdca else ""}}
             
             <div class="metric-card" style="margin-top: auto;">
                 <div class="metric-label">Selected Order</div>
@@ -1474,12 +1474,12 @@ def run_backtest():
         }});
         equitySeries.setData(equityData);
         
-        {"const cashSeries = equityChart.addAreaSeries({ topColor: '#10b98140', bottomColor: '#10b98105', lineColor: '#10b981', lineWidth: 1 }); cashSeries.setData(cashData);" if is_gdca else ""}
+        {{"const cashSeries = equityChart.addAreaSeries({{ topColor: '#10b98140', bottomColor: '#10b98105', lineColor: '#10b981', lineWidth: 1 }}); cashSeries.setData(cashData);" if is_gdca else ""}}
         
         const bnhSeries = equityChart.addLineSeries({{ color: '#f59e0b', lineWidth: 2, lineStyle: 2 }});
         bnhSeries.setData(bnhData);
 
-        {"const holdingsSeries = equityChart.addAreaSeries({ topColor: '#fbbf2440', bottomColor: '#fbbf2405', lineColor: '#fbbf24', lineWidth: 1, priceScaleId: 'left' }); holdingsSeries.setData(holdingsData);" if is_gdca else ""}
+        {{"const holdingsSeries = equityChart.addAreaSeries({{ topColor: '#fbbf2440', bottomColor: '#fbbf2405', lineColor: '#fbbf24', lineWidth: 1, priceScaleId: 'left' }}); holdingsSeries.setData(holdingsData);" if is_gdca else ""}}
 
         equitySeries.setMarkers(markerData);
         equityChart.timeScale().fitContent();
@@ -1636,15 +1636,15 @@ def run_backtest():
     </div>
     
     <style>
-        .footer {
+        .footer {{
             margin-top: 60px;
             text-align: center;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             padding-top: 24px;
             margin-bottom: 24px;
-        }
+        }}
 
-        .brand {
+        .brand {{
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1652,30 +1652,30 @@ def run_backtest():
             margin-bottom: 8px;
             font-weight: 700;
             letter-spacing: 3px;
-        }
+        }}
 
-        .creator {
+        .creator {{
             color: #e1e5eb;
             font-size: 13px;
-        }
+        }}
 
-        .project-name {
+        .project-name {{
             background: linear-gradient(90deg, #9ca3af, #6b7280);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-size: 13px;
-        }
+        }}
 
-        .dot {
+        .dot {{
             color: #3b82f6;
             font-size: 13px;
-        }
+        }}
 
-        .system-info {
+        .system-info {{
             color: #4b5563;
             font-size: 10px;
             letter-spacing: 0.5px;
-        }
+        }}
     </style>
 </body>
 </html>'''
@@ -1886,60 +1886,60 @@ def run_backtest():
     </div>
     
     <div class="comparison-grid">
-        <div class="strategy-card gdca {'winner' if gdca_wins else ''}">
-            {'<div class="winner-badge">🏆 WINNER</div>' if gdca_wins else ''}
+        <div class="strategy-card gdca {{'winner' if gdca_wins else ''}}">
+            {{'<div class="winner-badge">🏆 WINNER</div>' if gdca_wins else ''}}
             <div class="strategy-title gdca">📈 GDCA Strategy</div>
             <div class="metrics-grid">
                 <div class="metric">
                     <div class="metric-label">Total Invested</div>
-                    <div class="metric-value">${gdca_metrics['total_invested']:,.0f}</div>
+                    <div class="metric-value">${{gdca_metrics['total_invested']:,.0f}}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Current Value</div>
-                    <div class="metric-value">${gdca_metrics['total_equity']:,.0f}</div>
+                    <div class="metric-value">${{gdca_metrics['total_equity']:,.0f}}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Net Profit</div>
-                    <div class="metric-value {'green' if gdca_metrics['net_profit'] >= 0 else 'red'}">${gdca_metrics['net_profit']:,.0f}</div>
+                    <div class="metric-value {{'green' if gdca_metrics['net_profit'] >= 0 else 'red'}}">${{gdca_metrics['net_profit']:,.0f}}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">ROI</div>
-                    <div class="metric-value {'green' if gdca_metrics['roi'] >= 0 else 'red'}">{gdca_metrics['roi']:+.1f}%</div>
+                    <div class="metric-value {{'green' if gdca_metrics['roi'] >= 0 else 'red'}}">{{gdca_metrics['roi']:+.1f}}%</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Max Drawdown</div>
-                    <div class="metric-value red">{gdca_metrics['max_drawdown']:.1f}%</div>
+                    <div class="metric-value red">{{gdca_metrics['max_drawdown']:.1f}}%</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">BTC Holdings</div>
-                    <div class="metric-value">{gdca_metrics['total_btc']:.4f}</div>
+                    <div class="metric-value">{{gdca_metrics['total_btc']:.4f}}</div>
                 </div>
             </div>
         </div>
         
-        <div class="strategy-card dca {'winner' if not gdca_wins else ''}">
-            {'<div class="winner-badge">🏆 WINNER</div>' if not gdca_wins else ''}
+        <div class="strategy-card dca {{'winner' if not gdca_wins else ''}}">
+            {{'<div class="winner-badge">🏆 WINNER</div>' if not gdca_wins else ''}}
             <div class="strategy-title dca">📊 Standard DCA</div>
             <div class="metrics-grid">
                 <div class="metric">
                     <div class="metric-label">Total Invested</div>
-                    <div class="metric-value">${dca_metrics['std_dca_invested']:,.0f}</div>
+                    <div class="metric-value">${{dca_metrics['std_dca_invested']:,.0f}}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Current Value</div>
-                    <div class="metric-value">${dca_metrics['std_dca_equity']:,.0f}</div>
+                    <div class="metric-value">${{dca_metrics['std_dca_equity']:,.0f}}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Net Profit</div>
-                    <div class="metric-value {'green' if dca_metrics['std_dca_profit'] >= 0 else 'red'}">${dca_metrics['std_dca_profit']:,.0f}</div>
+                    <div class="metric-value {{'green' if dca_metrics['std_dca_profit'] >= 0 else 'red'}}">${{dca_metrics['std_dca_profit']:,.0f}}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">ROI</div>
-                    <div class="metric-value {'green' if dca_metrics['std_dca_roi'] >= 0 else 'red'}">{dca_metrics['std_dca_roi']:+.1f}%</div>
+                    <div class="metric-value {{'green' if dca_metrics['std_dca_roi'] >= 0 else 'red'}}">{{dca_metrics['std_dca_roi']:+.1f}}%</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Max Drawdown</div>
-                    <div class="metric-value red">{dca_metrics['std_dca_max_drawdown']:.1f}%</div>
+                    <div class="metric-value red">{{dca_metrics['std_dca_max_drawdown']:.1f}}%</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Strategy</div>
@@ -2130,15 +2130,15 @@ def run_backtest():
     </div>
     
     <style>
-        .footer {
+        .footer {{
             margin-top: 60px;
             text-align: center;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             padding-top: 24px;
             margin-bottom: 24px;
-        }
+        }}
 
-        .brand {
+        .brand {{
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2146,32 +2146,32 @@ def run_backtest():
             margin-bottom: 8px;
             font-weight: 700;
             letter-spacing: 2px;
-        }
+        }}
 
-        .project-name {
+        .project-name {{
             background: linear-gradient(90deg, #fff, #9ca3af);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-size: 13px;
-        }
+        }}
 
-        .creator {
+        .creator {{
             color: #4b5563;
             font-size: 11px;
-        }
+        }}
 
-        .divider {
+        .divider {{
             width: 3px;
             height: 3px;
             background: #4b5563;
             border-radius: 50%;
-        }
+        }}
 
-        .system-info {
+        .system-info {{
             color: #4b5563;
             font-size: 10px;
             letter-spacing: 0.5px;
-        }
+        }}
     </style>
 </body>
 </html>'''
