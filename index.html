@@ -16,221 +16,348 @@
             background: linear-gradient(135deg, #0a0a0f 0%, #111827 100%);
             color: #e1e5eb;
             min-height: 100vh;
-            padding: 24px;
+            padding: 40px 24px;
         }
 
         a {
             text-decoration: none;
             color: inherit;
+            display: block;
+            height: 100%;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 48px;
-            margin-top: 24px;
-        }
-
-        .header h1 {
-            font-size: 36px;
-            font-weight: 700;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 12px;
-        }
-
-        .header p {
-            color: #9ca3af;
-            font-size: 16px;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 24px;
+        .container {
             max-width: 1200px;
             margin: 0 auto;
         }
 
-        .card {
-            background: rgba(30, 35, 50, 0.6);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        .header {
+            margin-bottom: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .header-content h1 {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header-content p {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .last-update {
+            font-size: 12px;
+            color: #6b7280;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 12px;
             border-radius: 20px;
-            padding: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #e1e5eb;
+        }
+
+        .section-line {
+            flex-grow: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .grid {
+            display: grid;
+            gap: 24px;
+        }
+
+        .grid-cols-2 {
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        }
+
+        .grid-cols-3 {
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        /* Card Styles */
+        .card {
+            background: rgba(30, 35, 50, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            text-align: center;
             height: 100%;
         }
 
         .card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            border-color: rgba(255, 255, 255, 0.15);
-            background: rgba(30, 35, 50, 0.8);
+            transform: translateY(-4px);
+            background: rgba(36, 41, 58, 0.6);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
         }
 
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .card:hover::before {
-            opacity: 1;
+        /* Card Header */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
         }
 
         .card-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 16px;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
-            margin-bottom: 24px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 24px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .card.comparison .card-icon {
-            background: rgba(59, 130, 246, 0.1);
-            color: #3b82f6;
-            border-color: rgba(59, 130, 246, 0.2);
+        .status-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .card.gdca .card-icon {
+        .status-active {
             background: rgba(16, 185, 129, 0.1);
             color: #10b981;
-            border-color: rgba(16, 185, 129, 0.2);
         }
 
-        .card.dca .card-icon {
-            background: rgba(139, 92, 246, 0.1);
-            color: #8b5cf6;
-            border-color: rgba(139, 92, 246, 0.2);
+        .status-benchmark {
+            background: rgba(107, 114, 128, 0.1);
+            color: #9ca3af;
         }
 
-        .card h2 {
-            font-size: 24px;
+        .status-beta {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+        }
+
+        /* Card Content */
+        .card-title {
+            font-size: 20px;
             font-weight: 600;
-            margin-bottom: 12px;
             color: #f3f4f6;
+            margin-bottom: 8px;
         }
 
-        .card p {
+        .card-desc {
             color: #9ca3af;
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.5;
             margin-bottom: 24px;
             flex-grow: 1;
         }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: 500;
+        /* Metrics Preview (Mini stats in card) */
+        .card-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .mini-metric {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mini-label {
+            font-size: 10px;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+
+        .mini-value {
             font-size: 14px;
-            transition: all 0.2s;
-            width: 100%;
+            font-weight: 600;
+            color: #d1d5db;
         }
 
-        .card.comparison .btn {
-            background: #3b82f6;
-            color: white;
+        /* Button */
+        .btn-link {
+            font-size: 13px;
+            font-weight: 500;
+            color: #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
-        .card.comparison .btn:hover {
-            background: #2563eb;
+        .card:hover .btn-link {
+            color: #60a5fa;
         }
 
-        .card.gdca .btn {
-            background: rgba(16, 185, 129, 0.1);
-            color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.2);
+        /* Color Themes */
+        .theme-gdca .card-icon {
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.2);
         }
 
-        .card.gdca .btn:hover {
-            background: rgba(16, 185, 129, 0.2);
-        }
-
-        .card.dca .btn {
-            background: rgba(139, 92, 246, 0.1);
+        .theme-dca .card-icon {
             color: #8b5cf6;
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.2);
         }
 
-        .card.dca .btn:hover {
-            background: rgba(139, 92, 246, 0.2);
+        .theme-comparison .card-icon {
+            color: #ec4899;
+            background: rgba(236, 72, 153, 0.1);
+            border-color: rgba(236, 72, 153, 0.2);
         }
 
         .footer {
             text-align: center;
             color: #4b5563;
             font-size: 12px;
-            margin-top: 60px;
-            padding-bottom: 20px;
+            margin-top: 80px;
         }
     </style>
 </head>
 
 <body>
-    <div class="header">
-        <h1>Dashboard</h1>
-        <p>MYC GDCA Automated Backtest Reports</p>
-    </div>
-
-    <div class="dashboard-grid">
-        <!-- Comparison Card -->
-        <a href="./comparison_result.html">
-            <div class="card comparison">
-                <div class="card-icon">⚖️</div>
-                <h2>Strategy Comparison</h2>
-                <p>Side-by-side performance analysis of GDCA versus Standard DCA. Compare ROI, Drawdown, and Net Profit.
-                </p>
-                <div class="btn">View Comparison</div>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1>Strategy Dashboard</h1>
+                <p>Performance tracking and backtest analytics</p>
             </div>
-        </a>
-
-        <!-- GDCA Card -->
-        <a href="./gdca_result.html">
-            <div class="card gdca">
-                <div class="card-icon">📈</div>
-                <h2>GDCA Strategy</h2>
-                <p>Detailed breakdown of the Gradient DCA strategy performance, including buy/sell zones and trade
-                    history.</p>
-                <div class="btn">View Report</div>
+            <div class="last-update">
+                System Status: Online
             </div>
-        </a>
+        </header>
 
-        <!-- DCA Card -->
-        <a href="./dca_result.html">
-            <div class="card dca">
-                <div class="card-icon">📅</div>
-                <h2>Standard DCA</h2>
-                <p>Baseline performance metrics for a fixed-schedule Dollar Cost Averaging approach.</p>
-                <div class="btn">View Report</div>
+        <!-- Analytics Section -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Analytics & Comparison</span>
+                <div class="section-line"></div>
             </div>
-        </a>
-    </div>
+            <div class="grid grid-cols-2">
+                <!-- Comparison Report -->
+                <a href="./comparison_result.html">
+                    <div class="card theme-comparison">
+                        <div class="card-header">
+                            <div class="card-icon">⚖️</div>
+                            <span class="status-badge status-active">Analysis</span>
+                        </div>
+                        <h3 class="card-title">Strategy Comparison</h3>
+                        <p class="card-desc">Comprehensive side-by-side analysis of GDCA vs Standard DCA. Compare return
+                            on investment, drawdown, and risk-adjusted metrics.</p>
+                        <div class="btn-link">View Analysis →</div>
+                    </div>
+                </a>
+            </div>
+        </div>
 
-    <div class="footer">
-        Generated by Nautilus Trader • GitHub Actions
+        <!-- Active Strategies Section -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Active Strategies</span>
+                <div class="section-line"></div>
+            </div>
+            <div class="grid grid-cols-3">
+                <!-- GDCA Strategy -->
+                <a href="./gdca_result.html">
+                    <div class="card theme-gdca">
+                        <div class="card-header">
+                            <div class="card-icon">📈</div>
+                            <span class="status-badge status-active">Live</span>
+                        </div>
+                        <h3 class="card-title">GDCA Strategy</h3>
+                        <p class="card-desc">Gradient Dollar Cost Averaging. Uses moving average ribbons to dynamically
+                            adjust position sizing based on market trend.</p>
+                        <div class="card-metrics">
+                            <div class="mini-metric">
+                                <span class="mini-label">Type</span>
+                                <span class="mini-value">Trend Following</span>
+                            </div>
+                            <div class="mini-metric">
+                                <span class="mini-label">Risk</span>
+                                <span class="mini-value">Moderate</span>
+                            </div>
+                        </div>
+                        <div class="btn-link">View Report →</div>
+                    </div>
+                </a>
+
+                <!-- Placeholder for Future Strategy -->
+                <!-- 
+                <div class="card" style="opacity: 0.5; cursor: default;">
+                    <div class="card-header">
+                        <div class="card-icon">🔒</div>
+                        <span class="status-badge status-beta">Coming Soon</span>
+                    </div>
+                    <h3 class="card-title">Momentum Alpha</h3>
+                    <p class="card-desc">High-frequency momentum strategy currently under development.</p>
+                </div> 
+                -->
+            </div>
+        </div>
+
+        <!-- Benchmarks Section -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Benchmarks</span>
+                <div class="section-line"></div>
+            </div>
+            <div class="grid grid-cols-3">
+                <!-- Standard DCA -->
+                <a href="./dca_result.html">
+                    <div class="card theme-dca">
+                        <div class="card-header">
+                            <div class="card-icon">📅</div>
+                            <span class="status-badge status-benchmark">Baseline</span>
+                        </div>
+                        <h3 class="card-title">Standard DCA</h3>
+                        <p class="card-desc">Fixed-schedule investment strategy. Used as the baseline performance
+                            benchmark for all active strategies.</p>
+                        <div class="btn-link">View Report →</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            Generated by Nautilus Trader • GitHub Actions Deployment
+        </div>
     </div>
 </body>
 
