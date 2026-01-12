@@ -1625,9 +1625,9 @@ def run_backtest():
         }}, 100);
         <div class="footer">
             <div class="brand">
-                <span class="project-name">M Y C</span>
-                <span class="divider"></span>
                 <span class="creator">G R A P H</span>
+                <span class="dot">.</span>
+                <span class="project-name">M Y C</span>
             </div>
             <div class="system-info">
                 Enterprise Edition Ready • Powered by Nautilus Trader
@@ -1648,29 +1648,27 @@ def run_backtest():
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 16px;
+            gap: 12px;
             margin-bottom: 8px;
             font-weight: 700;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+        }
+
+        .creator {
+            color: #e1e5eb;
+            font-size: 13px;
         }
 
         .project-name {
-            background: linear-gradient(90deg, #fff, #9ca3af);
+            background: linear-gradient(90deg, #9ca3af, #6b7280);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-size: 13px;
         }
 
-        .creator {
-            color: #4b5563;
-            font-size: 11px;
-        }
-
-        .divider {
-            width: 3px;
-            height: 3px;
-            background: #4b5563;
-            border-radius: 50%;
+        .dot {
+            color: #3b82f6;
+            font-size: 13px;
         }
 
         .system-info {
