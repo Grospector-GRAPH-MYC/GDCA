@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   run-backtest:
@@ -54,7 +56,7 @@ jobs:
           fi
 
       - name: Run Backtest
-        if: steps.download.outputs.updated == 'true'
+        if: steps.download.outputs.updated == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           poetry run python scripts/run_backtest.py
 
@@ -72,3 +74,24 @@ jobs:
           
           git commit -m "Auto-update: Backtest results for $(date +'%Y-%m-%d')"
           git push
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        if: steps.download.outputs.updated == 'true' || github.event_name == 'workflow_dispatch'
+        with:
+          path: .  # Upload root directory which contains index.html and results
+
+  deploy-pages:
+    needs: run-backtest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    if: needs.run-backtest.result == 'success'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

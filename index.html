@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYC GDCA - Backtest Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #111827 100%);
+            color: #e1e5eb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .dashboard-container {
+            max-width: 800px;
+            width: 100%;
+            background: rgba(30, 35, 50, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 48px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        p.subtitle {
+            color: #9ca3af;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .link-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 24px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .link-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: #9ca3af;
+            line-height: 1.4;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <h1>MYC GDCA Dashboard</h1>
+        <p class="subtitle">Daily Automated Backtest Reports</p>
+
+        <div class="links-grid">
+            <a href="./comparison_result.html" class="link-card">
+                <div class="icon">⚖️</div>
+                <div class="card-title">Strategy Comparison</div>
+                <div class="card-desc">Side-by-side performance metrics of GDCA vs Standard DCA</div>
+            </a>
+
+            <a href="./gdca_result.html" class="link-card">
+                <div class="icon">📈</div>
+                <div class="card-title">GDCA Detailed</div>
+                <div class="card-desc">Deep dive into GDCA trades, buy/sell zones, and equity curve</div>
+            </a>
+
+            <a href="./dca_result.html" class="link-card">
+                <div class="icon">📅</div>
+                <div class="card-title">Standard DCA</div>
+                <div class="card-desc">Performance of a simple daily fixed-amount investment strategy</div>
+            </a>
+        </div>
+
+        <div class="footer">
+            Generated via GitHub Actions • Powered by Nautilus Trader
+        </div>
+    </div>
+</body>
+
+</html>
