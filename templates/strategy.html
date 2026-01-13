@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+
+{% block title %}{{ strategy_name }} | GRAPH·MYC{% endblock %}
+
+{% block head_scripts %}
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+{% endblock %}
+
+{% block page_badge %}
+<div class="nav-divider"></div>
+<div class="page-badge" style="border-color: {{ strategy_color }}33;">
+    <span class="page-badge-icon">{% if is_gdca %}📈{% else %}📊{% endif %}</span>
+    <span class="page-badge-text">{{ strategy_name }}</span>
+    <span class="page-badge-accent" style="color: {{ strategy_color }};">BTC/USD</span>
+</div>
+{% endblock %}
+
+{% block header_right %}
+<div class="header-stats">
+    <div class="header-stat">
+        <div class="header-stat-label">ROI</div>
+        <div class="header-stat-value {{ 'positive' if roi >= 0 else 'negative' }}">{{ "{:+.1f}".format(roi) }}%</div>
+    </div>
+    <div class="header-stat">
+        <div class="header-stat-label">Profit</div>
+        <div class="header-stat-value {{ 'positive' if profit >= 0 else 'negative' }}">${{ "{:,.0f}".format(profit) }}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_styles %}
+/* Strategy Page Layout */
+.strategy-layout {
+display: grid;
+grid-template-columns: 300px 1fr;
+gap: 20px;
+height: calc(100vh - 140px);
+}
+
+.metrics-panel {
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+
+.metric-card {
+background: rgba(255, 255, 255, 0.03);
+border: 1px solid var(--color-border);
+border-radius: 12px;
+padding: 14px;
+transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+background: rgba(255, 255, 255, 0.06);
+border-color: {{ strategy_color }}44;
+transform: translateY(-2px);
+}
+
+.metric-label {
+font-size: 11px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+margin-bottom: 4px;
+}
+
+.metric-value {
+font-size: 20px;
+font-weight: 600;
+}
+
+.metric-sub {
+font-size: 12px;
+color: var(--color-text-secondary);
+margin-top: 2px;
+}
+
+/* Charts */
+.charts-container {
+display: flex;
+flex-direction: column;
+gap: 12px;
+height: 100%;
+min-height: 0;
+}
+
+.chart-wrapper {
+background: rgba(20, 24, 35, 0.8);
+border: 1px solid var(--color-border);
+border-radius: 12px;
+overflow: hidden;
+position: relative;
+}
+
+.chart-wrapper.price { flex: 2; }
+.chart-wrapper.equity { flex: 1; }
+
+.chart-header {
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+z-index: 10;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 12px 16px;
+background: linear-gradient(180deg, rgba(20, 24, 35, 0.95) 0%, transparent 100%);
+}
+
+.chart-title {
+font-size: 13px;
+font-weight: 500;
+color: var(--color-text-secondary);
+}
+
+.chart-controls {
+display: flex;
+gap: 8px;
+}
+
+.btn {
+background: rgba(255, 255, 255, 0.1);
+color: var(--color-text-primary);
+border: 1px solid rgba(255, 255, 255, 0.1);
+padding: 6px 14px;
+border-radius: 6px;
+cursor: pointer;
+font-size: 12px;
+font-weight: 500;
+transition: all 0.2s ease;
+}
+
+.btn:hover {
+background: {{ strategy_color }}33;
+border-color: {{ strategy_color }};
+}
+
+.btn.active {
+background: {{ strategy_color }};
+border-color: {{ strategy_color }};
+}
+
+#chart-price, #chart-equity { width: 100%; height: 100%; }
+
+/* Tooltip */
+.tooltip-panel {
+position: absolute;
+top: 50px;
+left: 16px;
+background: rgba(20, 24, 35, 0.95);
+backdrop-filter: blur(10px);
+border: 1px solid rgba(255, 255, 255, 0.1);
+border-radius: 8px;
+padding: 10px 14px;
+z-index: 20;
+font-size: 12px;
+min-width: 180px;
+pointer-events: none;
+}
+
+.tp-row {
+display: flex;
+justify-content: space-between;
+margin-bottom: 4px;
+}
+
+.tp-label { color: var(--color-text-muted); }
+.tp-value { font-weight: 500; }
+{% endblock %}
+
+{% block content %}
+<div class="strategy-layout">
+    <!-- Metrics Panel -->
+    <div class="card metrics-panel">
+        <div class="metric-card">
+            <div class="metric-label">Total Invested</div>
+            <div class="metric-value">${{ "{:,.2f}".format(invested) }}</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Current Value</div>
+            <div class="metric-value">${{ "{:,.2f}".format(value) }}</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Net Profit</div>
+            <div class="metric-value {{ profit_class }}">${{ "{:,.2f}".format(profit) }}</div>
+            <div class="metric-sub {{ profit_class }}">{{ "{:+.2f}".format(roi) }}% ROI</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Max Drawdown</div>
+            <div class="metric-value text-danger">{{ "{:.2f}".format(max_dd) }}%</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">BTC Holdings</div>
+            <div class="metric-value">{{ "{:.6f}".format(btc_held) }}</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Total Trades</div>
+            <div class="metric-value">{{ trades }}</div>
+        </div>
+
+        <div class="metric-card" style="margin-top: auto;">
+            <div class="metric-label">Selected Order</div>
+            <div id="order-info" class="metric-value" style="font-size: 14px; color: {{ strategy_color }};">Hover over
+                chart</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-container">
+        <div class="chart-wrapper price">
+            <div class="chart-header">
+                <div class="chart-title">📈 Price Chart</div>
+                <div class="chart-controls">
+                    <button id="btn-markers" class="btn active">📍 Markers</button>
+                    <button id="btn-log" class="btn active">Log Scale</button>
+                    <button id="btn-reset" class="btn">Reset Zoom</button>
+                </div>
+            </div>
+            <div id="tooltip-price" class="tooltip-panel" style="display:none;"></div>
+            <div id="chart-price"></div>
+        </div>
+
+        <div class="chart-wrapper equity">
+            <div class="chart-header">
+                <div class="chart-title">💰 Portfolio Value</div>
+            </div>
+            <div id="tooltip-equity" class="tooltip-panel" style="display:none;"></div>
+            <div id="chart-equity"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Data
+    const ohlcData = {{ json_ohlc | safe }};
+    const ema12Data = {{ json_ema12 | safe }};
+    const ema26Data = {{ json_ema26 | safe }};
+    const markerData = {{ json_markers | safe }};
+    const equityData = {{ json_equity | safe }};
+    const bnhData = {{ json_bnh | safe }};
+    const cashData = {{ json_cash | safe }};
+    const holdingsData = {{ json_holdings | safe }};
+
+    const maShortData = {{ json_ma_short | safe }};
+    const maStrongSellData = {{ json_ma_strong_sell | safe }};
+    const maSellData = {{ json_ma_sell | safe }};
+    const maBuyData = {{ json_ma_buy | safe }};
+    const maStrongBuyData = {{ json_ma_strong_buy | safe }};
+    const maLongData = {{ json_ma_long | safe }};
+
+    const ribbons = {{ json_ribbons | safe }};
+    const ribbonsPast = {{ json_ribbons_past | safe }};
+    const futureData = {{ json_future | safe }};
+    const pastData = {{ json_past | safe }};
+
+    // Chart Options
+    const chartOptions = {
+        localization: { locale: 'en-US' },
+        layout: { background: { color: 'transparent' }, textColor: '#9ca3af' },
+        grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
+        timeScale: { borderColor: '#374151', timeVisible: true },
+        rightPriceScale: { borderColor: '#374151', mode: LightweightCharts.PriceScaleMode.Logarithmic },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+    };
+
+    // Price Chart
+    const priceContainer = document.getElementById('chart-price');
+    const priceChart = LightweightCharts.createChart(priceContainer, chartOptions);
+
+    // Zone Ribbons
+    function drawRibbon(ribbonLists, boundaryData, colorHex, style) {
+        const lineStyle = style !== undefined ? style : 0;
+        if (ribbonLists) {
+            for (const lineData of ribbonLists) {
+                const lineSeries = priceChart.addLineSeries({
+                    color: colorHex, lineWidth: 1,
+                    crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false, lineStyle: lineStyle
+                });
+                lineSeries.setData(lineData);
+            }
+        }
+        if (boundaryData) {
+            const lineSeries = priceChart.addLineSeries({
+                color: colorHex, lineWidth: 2, title: '', lastValueVisible: false, lineStyle: lineStyle, crosshairMarkerVisible: false
+            });
+            lineSeries.setData(boundaryData);
+        }
+    }
+
+    drawRibbon(ribbons.short, maShortData, '#801922');
+    drawRibbon(ribbons.strong_sell, maStrongSellData, '#b22833');
+    drawRibbon(ribbons.sell, maSellData, '#f57f17');
+    drawRibbon(ribbons.buy, maBuyData, '#1b5e20');
+    drawRibbon(ribbons.long, maStrongBuyData, '#00332a');
+
+    const lineLong = priceChart.addLineSeries({ color: '#00332a', lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false });
+    lineLong.setData(maLongData);
+
+    if (ribbonsPast) {
+        drawRibbon(ribbonsPast.short, null, '#801922', 2);
+        drawRibbon(ribbonsPast.strong_sell, null, '#b22833', 2);
+        drawRibbon(ribbonsPast.sell, null, '#f57f17', 2);
+        drawRibbon(ribbonsPast.buy, null, '#1b5e20', 2);
+        drawRibbon(ribbonsPast.long, null, '#00332a', 2);
+    }
+
+    if (futureData && futureData.length > 0) {
+        const futureSeries = priceChart.addLineSeries({ color: 'rgba(0,0,0,0)', lineWidth: 0, priceLineVisible: false, lastValueVisible: false });
+        futureSeries.setData(futureData);
+    }
+
+    if (pastData && pastData.length > 0) {
+        const pastSeries = priceChart.addLineSeries({ color: 'rgba(0,0,0,0)', lineWidth: 0, priceLineVisible: false, lastValueVisible: false });
+        pastSeries.setData(pastData);
+    }
+
+    // EMAs
+    const line12 = priceChart.addLineSeries({ color: '#f23645', lineWidth: 1, title: 'EMA 12' });
+    line12.setData(ema12Data);
+    const line26 = priceChart.addLineSeries({ color: '#2962FF', lineWidth: 1, title: 'EMA 26' });
+    line26.setData(ema26Data);
+
+    // Candlestick
+    const candleSeries = priceChart.addCandlestickSeries({
+        upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444'
+    });
+    candleSeries.setData(ohlcData);
+    let markersVisible = true;
+    candleSeries.setMarkers(markerData);
+
+    // Equity Chart
+    const equityChart = LightweightCharts.createChart(document.getElementById('chart-equity'), {
+        ...chartOptions,
+        rightPriceScale: { borderColor: '#374151' }
+    });
+
+    const equitySeries = equityChart.addAreaSeries({
+        topColor: '{{ strategy_color }}40', bottomColor: '{{ strategy_color }}05', lineColor: '{{ strategy_color }}', lineWidth: 2
+    });
+    equitySeries.setData(equityData);
+
+    // Cash on hand (only if data exists)
+    if (cashData && cashData.length > 0) {
+        const cashSeries = equityChart.addAreaSeries({ topColor: '#10b98140', bottomColor: '#10b98105', lineColor: '#10b981', lineWidth: 1 });
+        cashSeries.setData(cashData);
+    }
+
+    const bnhSeries = equityChart.addLineSeries({ color: '#f59e0b', lineWidth: 2, lineStyle: 2 });
+    bnhSeries.setData(bnhData);
+
+    // BTC Holdings on left scale (only if data exists)
+    if (holdingsData && holdingsData.length > 0) {
+        const holdingsSeries = equityChart.addAreaSeries({ topColor: '#fbbf2440', bottomColor: '#fbbf2405', lineColor: '#fbbf24', lineWidth: 1, priceScaleId: 'left' });
+        holdingsSeries.setData(holdingsData);
+    }
+
+    equitySeries.setMarkers(markerData);
+    equityChart.timeScale().fitContent();
+
+    // Sync Charts
+    function syncVisibleRange(source, target) {
+        const visibleRange = source.timeScale().getVisibleRange();
+        if (visibleRange) target.timeScale().setVisibleRange(visibleRange);
+    }
+    priceChart.timeScale().subscribeVisibleTimeRangeChange(() => syncVisibleRange(priceChart, equityChart));
+    equityChart.timeScale().subscribeVisibleTimeRangeChange(() => syncVisibleRange(equityChart, priceChart));
+
+    // Resize
+    new ResizeObserver(entries => {
+        for (let entry of entries) {
+            const { width, height } = entry.contentRect;
+            if (entry.target.id === 'chart-price') priceChart.applyOptions({ width, height });
+            if (entry.target.id === 'chart-equity') equityChart.applyOptions({ width, height });
+        }
+    }).observe(priceContainer);
+    new ResizeObserver(entries => {
+        for (let entry of entries) {
+            const { width, height } = entry.contentRect;
+            equityChart.applyOptions({ width, height });
+        }
+    }).observe(document.getElementById('chart-equity'));
+
+    // Tooltips
+    const orderInfoEl = document.getElementById('order-info');
+    const tooltipPrice = document.getElementById('tooltip-price');
+    const tooltipEquity = document.getElementById('tooltip-equity');
+    const markerMap = new Map();
+    if (markerData) markerData.forEach(m => markerMap.set(m.time, m));
+
+    const ohlcMap = new Map();
+    ohlcData.forEach(d => ohlcMap.set(d.time, d));
+    const equityMap = new Map();
+    equityData.forEach(d => equityMap.set(d.time, d));
+    const bnhMap = new Map();
+    bnhData.forEach(d => bnhMap.set(d.time, d));
+    const cashMap = new Map();
+    cashData.forEach(d => cashMap.set(d.time, d));
+    const holdingsMap = new Map();
+    holdingsData.forEach(d => holdingsMap.set(d.time, d));
+
+    // Price Crosshair
+    priceChart.subscribeCrosshairMove(param => {
+        if (!param.time) {
+            tooltipPrice.style.display = 'none';
+            orderInfoEl.innerHTML = 'Hover over chart';
+            return;
+        }
+
+        const ohlc = ohlcMap.get(param.time);
+        if (ohlc) {
+            const date = new Date(param.time * 1000);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const change = ((ohlc.close - ohlc.open) / ohlc.open * 100);
+            const changeClass = change >= 0 ? 'text-success' : 'text-danger';
+            tooltipPrice.innerHTML = `
+                <div class="tp-row"><span class="tp-label">Date</span><span class="tp-value">${dateStr}</span></div>
+                <div class="tp-row"><span class="tp-label">Open</span><span class="tp-value">$${ohlc.open.toLocaleString()}</span></div>
+                <div class="tp-row"><span class="tp-label">High</span><span class="tp-value">$${ohlc.high.toLocaleString()}</span></div>
+                <div class="tp-row"><span class="tp-label">Low</span><span class="tp-value">$${ohlc.low.toLocaleString()}</span></div>
+                <div class="tp-row"><span class="tp-label">Close</span><span class="tp-value">$${ohlc.close.toLocaleString()}</span></div>
+                <div class="tp-row"><span class="tp-label">Change</span><span class="tp-value ${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</span></div>
+            `;
+            tooltipPrice.style.display = 'block';
+        } else {
+            tooltipPrice.style.display = 'none';
+        }
+
+        const marker = markerMap.get(param.time);
+        if (marker) {
+            orderInfoEl.innerHTML = marker.tooltip;
+            orderInfoEl.style.color = marker.color;
+        } else {
+            orderInfoEl.innerHTML = '-';
+            orderInfoEl.style.color = '{{ strategy_color }}';
+        }
+    });
+
+    // Equity Crosshair
+    equityChart.subscribeCrosshairMove(param => {
+        if (!param.time) { tooltipEquity.style.display = 'none'; return; }
+
+        const equity = equityMap.get(param.time);
+        const bnh = bnhMap.get(param.time);
+        const cash = cashMap.get(param.time);
+        const holdings = holdingsMap.get(param.time);
+
+        if (equity) {
+            const date = new Date(param.time * 1000);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const invested = bnh ? bnh.value : 0;
+            const profit = equity.value - invested;
+            const profitClass = profit >= 0 ? 'text-success' : 'text-danger';
+
+            let html = `
+                <div class="tp-row"><span class="tp-label">Date</span><span class="tp-value">${dateStr}</span></div>
+                <div class="tp-row"><span class="tp-label">Portfolio</span><span class="tp-value">$${equity.value.toLocaleString()}</span></div>
+                <div class="tp-row"><span class="tp-label">Invested</span><span class="tp-value">$${invested.toLocaleString()}</span></div>
+                <div class="tp-row"><span class="tp-label">Profit</span><span class="tp-value ${profitClass}">$${profit.toLocaleString()}</span></div>
+            `;
+            if (cash && cash.value > 0) html += `<div class="tp-row"><span class="tp-label">Cash</span><span class="tp-value">$${cash.value.toLocaleString()}</span></div>`;
+            if (holdings && holdings.value > 0) html += `<div class="tp-row"><span class="tp-label">BTC</span><span class="tp-value">${holdings.value.toFixed(4)}</span></div>`;
+            tooltipEquity.innerHTML = html;
+            tooltipEquity.style.display = 'block';
+        } else { tooltipEquity.style.display = 'none'; }
+    });
+
+    // Controls
+    const btnLog = document.getElementById('btn-log');
+    let isLog = true;
+    btnLog.addEventListener('click', () => {
+        isLog = !isLog;
+        priceChart.priceScale('right').applyOptions({ mode: isLog ? LightweightCharts.PriceScaleMode.Logarithmic : LightweightCharts.PriceScaleMode.Normal });
+        btnLog.classList.toggle('active', isLog);
+        btnLog.innerText = isLog ? 'Log Scale' : 'Linear';
+    });
+
+    // Markers Toggle
+    const btnMarkers = document.getElementById('btn-markers');
+    btnMarkers.addEventListener('click', () => {
+        markersVisible = !markersVisible;
+        candleSeries.setMarkers(markersVisible ? markerData : []);
+        equitySeries.setMarkers(markersVisible ? markerData : []);
+        btnMarkers.classList.toggle('active', markersVisible);
+        btnMarkers.innerText = markersVisible ? '📍 Markers' : '📍 Hidden';
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+        if (ohlcData.length > 0) {
+            priceChart.timeScale().setVisibleRange({ from: ohlcData[0].time, to: ohlcData[ohlcData.length - 1].time });
+        }
+    });
+
+    setTimeout(() => {
+        if (ohlcData.length > 0) {
+            priceChart.timeScale().setVisibleRange({ from: ohlcData[0].time, to: ohlcData[ohlcData.length - 1].time });
+        }
+    }, 100);
+</script>
+{% endblock %}

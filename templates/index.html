@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | GRAPH·MYC{% endblock %}
+
+{% block page_styles %}
+/* Dashboard Hero */
+.hero {
+text-align: center;
+padding: 60px 20px;
+margin-bottom: 40px;
+}
+
+.hero-title {
+font-size: 48px;
+font-weight: 800;
+margin-bottom: 16px;
+letter-spacing: 4px;
+}
+
+.hero-graph {
+background: linear-gradient(180deg, #ffffff 0%, #a0a0a0 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
+
+.hero-dot {
+color: var(--color-accent-gdca);
+animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.hero-myc {
+background: linear-gradient(180deg, #8b8b8b 0%, #5a5a5a 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
+
+.hero-subtitle {
+color: var(--color-text-muted);
+font-size: 14px;
+letter-spacing: 3px;
+text-transform: uppercase;
+margin-bottom: 12px;
+}
+
+.hero-description {
+color: var(--color-text-secondary);
+font-size: 16px;
+max-width: 600px;
+margin: 0 auto;
+}
+
+/* Strategy Cards */
+.strategies-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+gap: 24px;
+margin-bottom: 40px;
+}
+
+.strategy-card {
+position: relative;
+transition: all 0.3s ease;
+cursor: pointer;
+text-decoration: none;
+color: inherit;
+display: block;
+}
+
+.strategy-card:hover {
+transform: translateY(-6px);
+box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+}
+
+.strategy-card.gdca {
+border-top: 4px solid var(--color-accent-gdca);
+}
+
+.strategy-card.dca {
+border-top: 4px solid var(--color-accent-dca);
+}
+
+.strategy-card::after {
+content: '→';
+position: absolute;
+right: 20px;
+top: 20px;
+font-size: 20px;
+color: var(--color-text-muted);
+transition: all 0.3s ease;
+}
+
+.strategy-card:hover::after {
+transform: translateX(5px);
+color: var(--color-text-primary);
+}
+
+.strategy-header {
+display: flex;
+align-items: center;
+gap: 12px;
+margin-bottom: 24px;
+}
+
+.strategy-icon {
+font-size: 32px;
+}
+
+.strategy-info h3 {
+font-size: 18px;
+font-weight: 600;
+margin-bottom: 4px;
+}
+
+.strategy-info h3.gdca { color: var(--color-accent-gdca); }
+.strategy-info h3.dca { color: var(--color-accent-dca); }
+
+.strategy-info p {
+color: var(--color-text-muted);
+font-size: 12px;
+}
+
+.strategy-metrics {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 16px;
+}
+
+.metric {
+background: rgba(255, 255, 255, 0.03);
+border-radius: 10px;
+padding: 12px;
+}
+
+.metric-label {
+font-size: 10px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+margin-bottom: 4px;
+}
+
+.metric-value {
+font-size: 18px;
+font-weight: 600;
+}
+
+.strategy-footer {
+margin-top: 20px;
+padding-top: 16px;
+border-top: 1px solid var(--color-border);
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.view-btn {
+font-size: 12px;
+font-weight: 500;
+color: var(--color-text-muted);
+transition: color 0.2s ease;
+}
+
+.strategy-card:hover .view-btn {
+color: var(--color-text-primary);
+}
+
+.performance-badge {
+font-size: 11px;
+font-weight: 600;
+padding: 4px 10px;
+border-radius: 12px;
+background: rgba(16, 185, 129, 0.15);
+color: var(--color-success);
+}
+
+.performance-badge.negative {
+background: rgba(239, 68, 68, 0.15);
+color: var(--color-danger);
+}
+
+/* Quick Actions */
+.quick-actions {
+margin-bottom: 40px;
+}
+
+.quick-actions h2 {
+font-size: 14px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 1px;
+margin-bottom: 16px;
+}
+
+.actions-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 12px;
+}
+
+.action-card {
+display: flex;
+align-items: center;
+gap: 12px;
+padding: 16px;
+background: rgba(255, 255, 255, 0.02);
+border: 1px solid var(--color-border);
+border-radius: 12px;
+text-decoration: none;
+color: inherit;
+transition: all 0.2s ease;
+}
+
+.action-card:hover {
+background: rgba(255, 255, 255, 0.05);
+border-color: var(--color-accent-gdca);
+}
+
+.action-icon {
+font-size: 24px;
+}
+
+.action-info h4 {
+font-size: 13px;
+font-weight: 500;
+margin-bottom: 2px;
+}
+
+.action-info p {
+font-size: 11px;
+color: var(--color-text-muted);
+}
+
+/* Stats Overview */
+.stats-overview {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+gap: 16px;
+margin-bottom: 40px;
+}
+
+.stat-card {
+background: rgba(255, 255, 255, 0.02);
+border: 1px solid var(--color-border);
+border-radius: 12px;
+padding: 20px;
+text-align: center;
+}
+
+.stat-value {
+font-size: 28px;
+font-weight: 700;
+margin-bottom: 4px;
+}
+
+.stat-label {
+font-size: 11px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+}
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-subtitle">Quantitative Trading Research</div>
+    <h1 class="hero-title">
+        <span class="hero-graph">GRAPH</span>
+        <span class="hero-dot">·</span>
+        <span class="hero-myc">MYC</span>
+    </h1>
+    <p class="hero-description">
+        Advanced DCA strategy backtest results for BTC/USD. Compare GDCA (Golden-Ratio DCA)
+        against Standard DCA to find the optimal accumulation strategy.
+    </p>
+</section>
+
+<!-- Stats Overview -->
+<section class="stats-overview">
+    <div class="stat-card">
+        <div class="stat-value">${{ "{:,.0f}".format(gdca_metrics.total_invested) }}</div>
+        <div class="stat-label">Total Invested</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value text-success">{{ "{:+.1f}".format(gdca_metrics.roi) }}%</div>
+        <div class="stat-label">GDCA ROI</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value {{ 'text-success' if dca_metrics.std_dca_roi >= 0 else 'text-danger' }}">{{
+            "{:+.1f}".format(dca_metrics.std_dca_roi) }}%</div>
+        <div class="stat-label">Standard DCA ROI</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ gdca_metrics.total_trades }}</div>
+        <div class="stat-label">Total Trades</div>
+    </div>
+</section>
+
+<!-- Strategy Cards -->
+<section class="strategies-grid">
+    <a href="./gdca_result.html" class="card strategy-card gdca">
+        <div class="strategy-header">
+            <span class="strategy-icon">📈</span>
+            <div class="strategy-info">
+                <h3 class="gdca">GDCA Strategy</h3>
+                <p>Golden-Ratio Dollar Cost Average</p>
+            </div>
+        </div>
+        <div class="strategy-metrics">
+            <div class="metric">
+                <div class="metric-label">Invested</div>
+                <div class="metric-value">${{ "{:,.0f}".format(gdca_metrics.total_invested) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${{ "{:,.0f}".format(gdca_metrics.total_equity) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value {{ 'text-success' if gdca_metrics.net_profit >= 0 else 'text-danger' }}">${{
+                    "{:,.0f}".format(gdca_metrics.net_profit) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value text-danger">{{ "{:.1f}".format(gdca_metrics.max_drawdown) }}%</div>
+            </div>
+        </div>
+        <div class="strategy-footer">
+            <span class="view-btn">View Details</span>
+            <span class="performance-badge {{ 'negative' if gdca_metrics.roi < 0 else '' }}">
+                {{ "{:+.1f}".format(gdca_metrics.roi) }}% ROI
+            </span>
+        </div>
+    </a>
+
+    <a href="./dca_result.html" class="card strategy-card dca">
+        <div class="strategy-header">
+            <span class="strategy-icon">📊</span>
+            <div class="strategy-info">
+                <h3 class="dca">Standard DCA</h3>
+                <p>Traditional Dollar Cost Average</p>
+            </div>
+        </div>
+        <div class="strategy-metrics">
+            <div class="metric">
+                <div class="metric-label">Invested</div>
+                <div class="metric-value">${{ "{:,.0f}".format(dca_metrics.std_dca_invested) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${{ "{:,.0f}".format(dca_metrics.std_dca_equity) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value {{ 'text-success' if dca_metrics.std_dca_profit >= 0 else 'text-danger' }}">${{
+                    "{:,.0f}".format(dca_metrics.std_dca_profit) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value text-danger">{{ "{:.1f}".format(dca_metrics.std_dca_max_drawdown) }}%</div>
+            </div>
+        </div>
+        <div class="strategy-footer">
+            <span class="view-btn">View Details</span>
+            <span class="performance-badge {{ 'negative' if dca_metrics.std_dca_roi < 0 else '' }}">
+                {{ "{:+.1f}".format(dca_metrics.std_dca_roi) }}% ROI
+            </span>
+        </div>
+    </a>
+</section>
+
+<!-- Quick Actions -->
+<section class="quick-actions">
+    <h2>Quick Actions</h2>
+    <div class="actions-grid">
+        <a href="./comparison_result.html" class="action-card">
+            <span class="action-icon">🔄</span>
+            <div class="action-info">
+                <h4>Compare Strategies</h4>
+                <p>Side-by-side analysis</p>
+            </div>
+        </a>
+        <a href="./gdca_result.html" class="action-card">
+            <span class="action-icon">📈</span>
+            <div class="action-info">
+                <h4>GDCA Charts</h4>
+                <p>Interactive price charts</p>
+            </div>
+        </a>
+        <a href="./dca_result.html" class="action-card">
+            <span class="action-icon">📊</span>
+            <div class="action-info">
+                <h4>DCA Charts</h4>
+                <p>Standard DCA analysis</p>
+            </div>
+        </a>
+    </div>
+</section>
+{% endblock %}

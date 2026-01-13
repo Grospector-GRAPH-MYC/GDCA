@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Strategy Comparison | GRAPH·MYC{% endblock %}
+
+{% block head_scripts %}
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+{% endblock %}
+
+{% block page_badge %}
+<div class="nav-divider"></div>
+<div class="page-badge">
+    <span class="page-badge-icon">📊</span>
+    <span class="page-badge-text">Strategy Comparison</span>
+    <span class="page-badge-accent">GDCA vs DCA</span>
+</div>
+{% endblock %}
+
+{% block header_right %}
+<div class="header-stats">
+    <div class="header-stat">
+        <div class="header-stat-label">GDCA ROI</div>
+        <div class="header-stat-value {{ 'positive' if gdca_metrics.roi >= 0 else 'negative' }}">{{
+            "{:+.1f}".format(gdca_metrics.roi) }}%</div>
+    </div>
+    <div class="header-stat">
+        <div class="header-stat-label">DCA ROI</div>
+        <div class="header-stat-value {{ 'positive' if dca_metrics.std_dca_roi >= 0 else 'negative' }}">{{
+            "{:+.1f}".format(dca_metrics.std_dca_roi) }}%</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_styles %}
+/* Comparison Cards */
+.comparison-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 24px;
+margin-bottom: 24px;
+}
+
+.strategy-card {
+position: relative;
+transition: all 0.3s ease;
+}
+
+.strategy-card:hover {
+transform: translateY(-4px);
+box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.strategy-card.gdca { border-top: 3px solid var(--color-accent-gdca); }
+.strategy-card.dca { border-top: 3px solid var(--color-accent-dca); }
+
+.strategy-card.winner {
+box-shadow: 0 0 30px rgba(16, 185, 129, 0.15);
+border-color: rgba(16, 185, 129, 0.3);
+}
+
+.winner-badge {
+position: absolute;
+top: -14px;
+right: 20px;
+background: linear-gradient(135deg, var(--color-success), #059669);
+color: white;
+padding: 6px 16px;
+border-radius: 20px;
+font-size: 11px;
+font-weight: 700;
+display: flex;
+align-items: center;
+gap: 6px;
+box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.strategy-title {
+font-size: 16px;
+font-weight: 600;
+margin-bottom: 20px;
+display: flex;
+align-items: center;
+gap: 10px;
+}
+
+.strategy-title.gdca { color: var(--color-accent-gdca); }
+.strategy-title.dca { color: var(--color-accent-dca); }
+
+.metrics-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 12px;
+}
+
+.metric {
+background: rgba(255, 255, 255, 0.03);
+border-radius: 10px;
+padding: 14px;
+}
+
+.metric-label {
+font-size: 10px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+margin-bottom: 4px;
+}
+
+.metric-value {
+font-size: 18px;
+font-weight: 600;
+}
+
+/* Charts Section */
+.chart-section {
+margin-bottom: 24px;
+}
+
+.chart-section h3 {
+font-size: 14px;
+font-weight: 500;
+color: var(--color-text-secondary);
+margin-bottom: 16px;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.charts-row {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 20px;
+height: 280px;
+}
+
+.chart-box {
+background: rgba(15, 18, 25, 0.6);
+border-radius: 12px;
+overflow: hidden;
+position: relative;
+height: 100%;
+}
+
+.chart-label {
+position: absolute;
+top: 10px;
+left: 14px;
+font-size: 12px;
+font-weight: 500;
+z-index: 10;
+padding: 4px 10px;
+border-radius: 4px;
+background: rgba(0, 0, 0, 0.5);
+}
+
+.chart-label.gdca { color: var(--color-accent-gdca); }
+.chart-label.dca { color: var(--color-accent-dca); }
+
+#chart-gdca, #chart-dca { width: 100%; height: 100%; }
+
+.overlay-section { height: 320px; }
+#chart-overlay { height: 280px; }
+
+.tooltip-panel {
+position: absolute;
+top: 35px;
+left: 14px;
+background: rgba(20, 24, 35, 0.95);
+backdrop-filter: blur(10px);
+border: 1px solid rgba(255, 255, 255, 0.1);
+border-radius: 8px;
+padding: 10px 14px;
+z-index: 20;
+font-size: 12px;
+min-width: 200px;
+pointer-events: none;
+}
+
+.tp-row {
+display: flex;
+justify-content: space-between;
+margin-bottom: 4px;
+}
+
+.tp-label { color: var(--color-text-muted); }
+.tp-value { font-weight: 500; }
+{% endblock %}
+
+{% block content %}
+<!-- Comparison Cards -->
+<div class="comparison-grid">
+    <div class="card strategy-card gdca {{ 'winner' if gdca_wins else '' }}">
+        {% if gdca_wins %}
+        <div class="winner-badge">🏆 WINNER</div>
+        {% endif %}
+        <div class="strategy-title gdca">📈 GDCA Strategy</div>
+        <div class="metrics-grid">
+            <div class="metric">
+                <div class="metric-label">Total Invested</div>
+                <div class="metric-value">${{ "{:,.0f}".format(gdca_metrics.total_invested) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${{ "{:,.0f}".format(gdca_metrics.total_equity) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value {{ 'text-success' if gdca_metrics.net_profit >= 0 else 'text-danger' }}">${{
+                    "{:,.0f}".format(gdca_metrics.net_profit) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">ROI</div>
+                <div class="metric-value {{ 'text-success' if gdca_metrics.roi >= 0 else 'text-danger' }}">{{
+                    "{:+.1f}".format(gdca_metrics.roi) }}%</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value text-danger">{{ "{:.1f}".format(gdca_metrics.max_drawdown) }}%</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">BTC Holdings</div>
+                <div class="metric-value">{{ "{:.4f}".format(gdca_metrics.total_btc) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card strategy-card dca {{ 'winner' if not gdca_wins else '' }}">
+        {% if not gdca_wins %}
+        <div class="winner-badge">🏆 WINNER</div>
+        {% endif %}
+        <div class="strategy-title dca">📊 Standard DCA</div>
+        <div class="metrics-grid">
+            <div class="metric">
+                <div class="metric-label">Total Invested</div>
+                <div class="metric-value">${{ "{:,.0f}".format(dca_metrics.std_dca_invested) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">${{ "{:,.0f}".format(dca_metrics.std_dca_equity) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value {{ 'text-success' if dca_metrics.std_dca_profit >= 0 else 'text-danger' }}">${{
+                    "{:,.0f}".format(dca_metrics.std_dca_profit) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">ROI</div>
+                <div class="metric-value {{ 'text-success' if dca_metrics.std_dca_roi >= 0 else 'text-danger' }}">{{
+                    "{:+.1f}".format(dca_metrics.std_dca_roi) }}%</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value text-danger">{{ "{:.1f}".format(dca_metrics.std_dca_max_drawdown) }}%</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Strategy</div>
+                <div class="metric-value" style="font-size: 13px;">Fixed Daily Buy</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Individual Charts -->
+<div class="card chart-section">
+    <h3>📈 Individual Performance</h3>
+    <div class="charts-row">
+        <div class="chart-box">
+            <div class="chart-label gdca">GDCA Portfolio</div>
+            <div id="tooltip-gdca" class="tooltip-panel" style="display:none;"></div>
+            <div id="chart-gdca"></div>
+        </div>
+        <div class="chart-box">
+            <div class="chart-label dca">Standard DCA Portfolio</div>
+            <div id="tooltip-dca" class="tooltip-panel" style="display:none;"></div>
+            <div id="chart-dca"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay Chart -->
+<div class="card chart-section overlay-section">
+    <h3>🔄 Combined Overlay</h3>
+    <div id="tooltip-overlay" class="tooltip-panel" style="display:none;"></div>
+    <div id="chart-overlay"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const equityGdca = {{ json_equity_gdca | safe }};
+    const equityDca = {{ json_equity_dca | safe }};
+    const bnhData = {{ json_bnh | safe }};
+
+    const chartOptions = {
+        localization: { locale: 'en-US' },
+        layout: { background: { color: 'transparent' }, textColor: '#9ca3af' },
+        grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
+        rightPriceScale: { borderColor: '#374151' },
+        timeScale: { borderColor: '#374151' }
+    };
+
+    // GDCA Chart
+    const gdcaChart = LightweightCharts.createChart(document.getElementById('chart-gdca'), chartOptions);
+    const gdcaSeries = gdcaChart.addAreaSeries({
+        topColor: '#3b82f640', bottomColor: '#3b82f605', lineColor: '#3b82f6', lineWidth: 2
+    });
+    gdcaSeries.setData(equityGdca);
+    const gdcaBnh = gdcaChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 2 });
+    gdcaBnh.setData(bnhData);
+    gdcaChart.timeScale().fitContent();
+
+    // DCA Chart
+    const dcaChart = LightweightCharts.createChart(document.getElementById('chart-dca'), chartOptions);
+    const dcaSeries = dcaChart.addAreaSeries({
+        topColor: '#8b5cf640', bottomColor: '#8b5cf605', lineColor: '#8b5cf6', lineWidth: 2
+    });
+    dcaSeries.setData(equityDca);
+    const dcaBnh = dcaChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 2 });
+    dcaBnh.setData(bnhData);
+    dcaChart.timeScale().fitContent();
+
+    // Overlay Chart
+    const overlayChart = LightweightCharts.createChart(document.getElementById('chart-overlay'), chartOptions);
+    const overlayGdca = overlayChart.addLineSeries({ color: '#3b82f6', lineWidth: 2, title: 'GDCA' });
+    overlayGdca.setData(equityGdca);
+    const overlayDca = overlayChart.addLineSeries({ color: '#8b5cf6', lineWidth: 2, title: 'Standard DCA' });
+    overlayDca.setData(equityDca);
+    const overlayBnh = overlayChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 2, title: 'Invested' });
+    overlayBnh.setData(bnhData);
+    overlayChart.timeScale().fitContent();
+
+    // Sync all charts
+    function syncCharts(source, targets) {
+        const range = source.timeScale().getVisibleRange();
+        if (range) targets.forEach(t => t.timeScale().setVisibleRange(range));
+    }
+
+    gdcaChart.timeScale().subscribeVisibleTimeRangeChange(() => syncCharts(gdcaChart, [dcaChart, overlayChart]));
+    dcaChart.timeScale().subscribeVisibleTimeRangeChange(() => syncCharts(dcaChart, [gdcaChart, overlayChart]));
+    overlayChart.timeScale().subscribeVisibleTimeRangeChange(() => syncCharts(overlayChart, [gdcaChart, dcaChart]));
+
+    // Resize
+    new ResizeObserver(() => {
+        const gdcaEl = document.getElementById('chart-gdca');
+        const dcaEl = document.getElementById('chart-dca');
+        const overlayEl = document.getElementById('chart-overlay');
+        gdcaChart.applyOptions({ width: gdcaEl.clientWidth, height: gdcaEl.clientHeight });
+        dcaChart.applyOptions({ width: dcaEl.clientWidth, height: dcaEl.clientHeight });
+        overlayChart.applyOptions({ width: overlayEl.clientWidth, height: overlayEl.clientHeight });
+    }).observe(document.body);
+
+    // Data maps for tooltips
+    const gdcaMap = new Map();
+    equityGdca.forEach(d => gdcaMap.set(d.time, d));
+    const dcaMap = new Map();
+    equityDca.forEach(d => dcaMap.set(d.time, d));
+    const bnhMap = new Map();
+    bnhData.forEach(d => bnhMap.set(d.time, d));
+
+    function formatTooltip(date, value, invested, label) {
+        const profit = value - invested;
+        const roi = invested > 0 ? ((value - invested) / invested * 100) : 0;
+        return `
+            <div class="tp-row"><span class="tp-label">Date</span><span class="tp-value">${date}</span></div>
+            <div class="tp-row"><span class="tp-label">${label}</span><span class="tp-value">$${value.toLocaleString()}</span></div>
+            <div class="tp-row"><span class="tp-label">Invested</span><span class="tp-value">$${invested.toLocaleString()}</span></div>
+            <div class="tp-row"><span class="tp-label">Profit</span><span class="tp-value ${profit >= 0 ? 'text-success' : 'text-danger'}">$${profit.toLocaleString()}</span></div>
+            <div class="tp-row"><span class="tp-label">ROI</span><span class="tp-value ${roi >= 0 ? 'text-success' : 'text-danger'}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span></div>
+        `;
+    }
+
+    // Tooltips
+    const tooltipGdca = document.getElementById('tooltip-gdca');
+    const tooltipDca = document.getElementById('tooltip-dca');
+    const tooltipOverlay = document.getElementById('tooltip-overlay');
+
+    gdcaChart.subscribeCrosshairMove(param => {
+        if (!param.time) { tooltipGdca.style.display = 'none'; return; }
+        const gdca = gdcaMap.get(param.time);
+        const bnh = bnhMap.get(param.time);
+        if (gdca) {
+            const date = new Date(param.time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            tooltipGdca.innerHTML = formatTooltip(date, gdca.value, bnh ? bnh.value : 0, 'GDCA');
+            tooltipGdca.style.display = 'block';
+        } else { tooltipGdca.style.display = 'none'; }
+    });
+
+    dcaChart.subscribeCrosshairMove(param => {
+        if (!param.time) { tooltipDca.style.display = 'none'; return; }
+        const dca = dcaMap.get(param.time);
+        const bnh = bnhMap.get(param.time);
+        if (dca) {
+            const date = new Date(param.time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            tooltipDca.innerHTML = formatTooltip(date, dca.value, bnh ? bnh.value : 0, 'DCA');
+            tooltipDca.style.display = 'block';
+        } else { tooltipDca.style.display = 'none'; }
+    });
+
+    overlayChart.subscribeCrosshairMove(param => {
+        if (!param.time) { tooltipOverlay.style.display = 'none'; return; }
+        const gdca = gdcaMap.get(param.time);
+        const dca = dcaMap.get(param.time);
+        const bnh = bnhMap.get(param.time);
+        if (gdca || dca) {
+            const date = new Date(param.time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const invested = bnh ? bnh.value : 0;
+            let html = `<div class="tp-row"><span class="tp-label">Date</span><span class="tp-value">${date}</span></div>`;
+            if (gdca) html += `<div class="tp-row"><span class="tp-label" style="color:#3b82f6;">● GDCA</span><span class="tp-value">$${gdca.value.toLocaleString()}</span></div>`;
+            if (dca) html += `<div class="tp-row"><span class="tp-label" style="color:#8b5cf6;">● DCA</span><span class="tp-value">$${dca.value.toLocaleString()}</span></div>`;
+            html += `<div class="tp-row"><span class="tp-label" style="color:#f59e0b;">● Invested</span><span class="tp-value">$${invested.toLocaleString()}</span></div>`;
+            tooltipOverlay.innerHTML = html;
+            tooltipOverlay.style.display = 'block';
+        } else { tooltipOverlay.style.display = 'none'; }
+    });
+</script>
+{% endblock %}

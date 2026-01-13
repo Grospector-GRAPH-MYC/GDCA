@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GRAPH MYC{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    {% block head_scripts %}{% endblock %}
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --color-bg-primary: #0a0a0f;
+            --color-bg-secondary: #111827;
+            --color-bg-card: rgba(30, 35, 50, 0.6);
+            --color-text-primary: #e1e5eb;
+            --color-text-secondary: #9ca3af;
+            --color-text-muted: #6b7280;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --color-accent-gdca: #3b82f6;
+            --color-accent-dca: #8b5cf6;
+            --color-success: #10b981;
+            --color-danger: #ef4444;
+            --color-warning: #f59e0b;
+        }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%); color: var(--color-text-primary); min-height: 100vh; line-height: 1.5; }
+        .header { background: linear-gradient(180deg, rgba(20, 20, 35, 0.98) 0%, rgba(15, 15, 25, 0.95) 100%); border-bottom: 1px solid var(--color-border); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(20px); }
+        .header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, var(--color-accent-gdca) 20%, var(--color-accent-dca) 50%, var(--color-accent-gdca) 80%, transparent 100%); }
+        .header-inner { max-width: 1600px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .header-left { display: flex; align-items: center; gap: 24px; }
+        .logo { display: flex; align-items: center; gap: 2px; text-decoration: none; }
+        .logo-text { font-weight: 800; font-size: 22px; letter-spacing: 2px; }
+        .logo-graph { background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .logo-dot { color: var(--color-accent-gdca); font-size: 26px; margin: 0 2px; }
+        .logo-myc { background: linear-gradient(180deg, #8b8b8b 0%, #5a5a5a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav { display: flex; align-items: center; gap: 4px; }
+        .nav-link { color: var(--color-text-muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 8px 14px; border-radius: 8px; transition: all 0.2s ease; }
+        .nav-link:hover { color: var(--color-text-primary); background: rgba(255, 255, 255, 0.05); }
+        .nav-link.active { color: var(--color-accent-gdca); background: rgba(59, 130, 246, 0.1); }
+        .nav-divider { width: 1px; height: 20px; background: var(--color-border); margin: 0 8px; }
+        .page-badge { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--color-border); border-radius: 20px; font-size: 12px; }
+        .page-badge-icon { font-size: 14px; }
+        .page-badge-text { color: var(--color-text-secondary); font-weight: 500; }
+        .page-badge-accent { color: var(--color-accent-gdca); font-weight: 600; }
+        .header-stats { display: flex; align-items: center; gap: 20px; }
+        .header-stat { text-align: right; }
+        .header-stat-label { font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .header-stat-value { font-size: 14px; font-weight: 600; }
+        .header-stat-value.positive { color: var(--color-success); }
+        .header-stat-value.negative { color: var(--color-danger); }
+        .main-content { max-width: 1600px; margin: 0 auto; padding: 20px 24px; }
+        .footer { margin-top: 60px; padding: 40px 24px; background: linear-gradient(180deg, transparent 0%, rgba(10, 10, 15, 0.5) 100%); border-top: 1px solid var(--color-border); }
+        .footer-inner { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .footer-logo { display: flex; align-items: center; gap: 3px; }
+        .footer-logo .logo-text { font-size: 28px; letter-spacing: 3px; font-weight: 800; }
+        .footer-logo .logo-graph { background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .footer-logo .logo-dot { font-size: 32px; color: var(--color-accent-gdca); }
+        .footer-logo .logo-myc { background: linear-gradient(180deg, #8b8b8b 0%, #5a5a5a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .footer-tagline { color: var(--color-text-muted); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+        .footer-links { display: flex; gap: 24px; }
+        .footer-link { color: var(--color-text-muted); text-decoration: none; font-size: 13px; transition: color 0.2s ease; }
+        .footer-link:hover { color: var(--color-accent-gdca); }
+        .footer-divider { width: 80px; height: 1px; background: linear-gradient(90deg, transparent, var(--color-border), transparent); }
+        .footer-powered { color: var(--color-text-muted); font-size: 11px; display: flex; align-items: center; gap: 6px; }
+        .footer-powered svg { width: 12px; height: 12px; fill: currentColor; }
+        .text-success { color: var(--color-success); }
+        .text-danger { color: var(--color-danger); }
+        .text-warning { color: var(--color-warning); }
+        .text-muted { color: var(--color-text-muted); }
+        .card { background: var(--color-bg-card); backdrop-filter: blur(20px); border: 1px solid var(--color-border); border-radius: 16px; padding: 20px; }
+        {% block page_styles %}{% endblock %}
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-left">
+                <a href="./index.html" class="logo">
+                    <span class="logo-text logo-graph">G R A P H</span>
+                    <span class="logo-dot"> . </span>
+                    <span class="logo-text logo-myc">M Y C</span>
+                </a>
+                <nav class="nav">
+                    <a href="./index.html" class="nav-link {% if page_id == 'index' %}active{% endif %}">Dashboard</a>
+                    <a href="./gdca_result.html" class="nav-link {% if page_id == 'gdca' %}active{% endif %}">GDCA</a>
+                    <a href="./dca_result.html" class="nav-link {% if page_id == 'dca' %}active{% endif %}">Standard DCA</a>
+                    <a href="./comparison_result.html" class="nav-link {% if page_id == 'comparison' %}active{% endif %}">Compare</a>
+                </nav>
+                {% block page_badge %}{% endblock %}
+                {% if date_range_text %}
+                <div class="page-badge" style="margin-left: auto;">
+                    <span class="page-badge-icon">📅</span>
+                    <span class="page-badge-text">Backtest Period:</span>
+                    <span class="page-badge-accent">{{ date_range_text }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% block header_right %}{% endblock %}
+        </div>
+    </header>
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-tagline">Quantitative Trading Research</div>
+            <div class="footer-links">
+                <a href="./index.html" class="footer-link">Dashboard</a>
+                <a href="./gdca_result.html" class="footer-link">GDCA Strategy</a>
+                <a href="./dca_result.html" class="footer-link">Standard DCA</a>
+                <a href="./comparison_result.html" class="footer-link">Compare</a>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-powered">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                Powered by Nautilus Trader
+            </div>
+        </div>
+    </footer>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

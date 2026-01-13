@@ -280,6 +280,10 @@ def run_backtest():
     std_dca_btc = 0.0
     std_dca_invested = 0.0
     std_dca_equity_data = [] # List of {'time': '...', 'value': ...}
+    std_dca_markers = [] # List of DCA markers for chart
+    std_dca_trade_count = 0 # Count of DCA purchases
+    std_dca_holdings_data = [] # List of DCA holdings over time
+    std_dca_cash_data = [] # List of DCA cash over time (always 0 for standard DCA)
     
     simul_cash_series = []
     simul_invested_series = []
@@ -378,11 +382,33 @@ def run_backtest():
             purchased_btc = daily_dca_amt / float(current_close_price)
             std_dca_btc += purchased_btc
             std_dca_invested += daily_dca_amt
+            std_dca_trade_count += 1
+            
+            # Generate DCA marker
+            ts = int(current_time.timestamp())
+            qty_sats = int(purchased_btc * 100_000_000)
+            text = f"DCA ${daily_dca_amt:,.2f}<br>{purchased_btc:.8f} BTC ({qty_sats:,} Sats)"
+            std_dca_markers.append({
+                'time': ts,
+                'position': 'belowBar',
+                'color': '#8b5cf6',  # DCA purple color
+                'shape': 'arrowUp',
+                'text': '',
+                'tooltip': text
+            })
         
         std_dca_equity = std_dca_btc * float(current_close_price)
         std_dca_equity_data.append({
             "time": int(current_time.timestamp()),
             "value": std_dca_equity
+        })
+        std_dca_holdings_data.append({
+            "time": int(current_time.timestamp()),
+            "value": std_dca_btc
+        })
+        std_dca_cash_data.append({
+            "time": int(current_time.timestamp()),
+            "value": 0.0  # Standard DCA spends all deposits immediately
         })
 
         # Update Simulated Series
@@ -782,6 +808,38 @@ def run_backtest():
     ma_strong_buy_data = clean_data(ma_strong_buy_data)
     ma_long_data = clean_data(ma_long_data)
 
+    # --- Trim Chart Data to Backtest Range ---
+    # This ensures charts show only the selected period while indicators
+    # were calculated on full historical data for proper warm-up
+    def trim_to_range(data_list, start_ts, end_ts):
+        """Filter time-series data to backtest range for charts."""
+        if not data_list:
+            return data_list
+        start_epoch = int(start_ts.timestamp()) if start_ts else 0
+        end_epoch = int(end_ts.timestamp()) if end_ts else float('inf')
+        return [d for d in data_list if start_epoch <= d['time'] <= end_epoch]
+
+    if start_ts_sim or end_ts_sim:
+        print(f"Trimming chart data to backtest range: {start_ts_sim} to {end_ts_sim}")
+        ohlc_data = trim_to_range(ohlc_data, start_ts_sim, end_ts_sim)
+        ema12_data = trim_to_range(ema12_data, start_ts_sim, end_ts_sim)
+        ema26_data = trim_to_range(ema26_data, start_ts_sim, end_ts_sim)
+        equity_data = trim_to_range(equity_data, start_ts_sim, end_ts_sim)
+        bnh_data = trim_to_range(bnh_data, start_ts_sim, end_ts_sim)
+        cash_data = trim_to_range(cash_data, start_ts_sim, end_ts_sim)
+        holdings_data = trim_to_range(holdings_data, start_ts_sim, end_ts_sim)
+        std_dca_equity_data = trim_to_range(std_dca_equity_data, start_ts_sim, end_ts_sim)
+        std_dca_holdings_data = trim_to_range(std_dca_holdings_data, start_ts_sim, end_ts_sim)
+        std_dca_cash_data = trim_to_range(std_dca_cash_data, start_ts_sim, end_ts_sim)
+        markers = trim_to_range(markers, start_ts_sim, end_ts_sim)
+        std_dca_markers = trim_to_range(std_dca_markers, start_ts_sim, end_ts_sim)
+        ma_short_data = trim_to_range(ma_short_data, start_ts_sim, end_ts_sim)
+        ma_strong_sell_data = trim_to_range(ma_strong_sell_data, start_ts_sim, end_ts_sim)
+        ma_sell_data = trim_to_range(ma_sell_data, start_ts_sim, end_ts_sim)
+        ma_buy_data = trim_to_range(ma_buy_data, start_ts_sim, end_ts_sim)
+        ma_strong_buy_data = trim_to_range(ma_strong_buy_data, start_ts_sim, end_ts_sim)
+        ma_long_data = trim_to_range(ma_long_data, start_ts_sim, end_ts_sim)
+
     # Serialize
     # Ensure sorted by time
     # ohlc_data.sort(key=lambda x: x['time'])
@@ -1041,6 +1099,9 @@ def run_backtest():
     json_cash = json.dumps(cash_data) # Export Cash Series
     json_holdings = json.dumps(holdings_data) # Export Holdings Series
     json_std_dca_equity = json.dumps(std_dca_equity_data) # Export Standard DCA Equity Series
+    json_dca_markers = json.dumps(std_dca_markers) # Export DCA Markers
+    json_dca_holdings = json.dumps(std_dca_holdings_data) # Export DCA Holdings
+    json_dca_cash = json.dumps(std_dca_cash_data) # Export DCA Cash
 
     
     json_ma_short = json.dumps(ma_short_data)
@@ -1065,7 +1126,10 @@ def run_backtest():
         "std_dca_equity": std_dca_current_value,
         "std_dca_profit": std_dca_net_profit,
         "std_dca_roi": std_dca_roi,
-        "std_dca_max_drawdown": std_dca_max_dd_pct
+        "std_dca_max_drawdown": std_dca_max_dd_pct,
+        # Backtest date range info
+        "backtest_start": str(start_ts_sim.date()) if start_ts_sim else None,
+        "backtest_end": str(end_ts_sim.date()) if end_ts_sim else None
     }
     json_metrics = json.dumps(metrics_payload)
     
@@ -1112,6 +1176,17 @@ def run_backtest():
         max_dd = metrics.get('max_drawdown', 0) if is_gdca else metrics.get('std_dca_max_drawdown', 0)
         btc_held = metrics.get('total_btc', 0) if is_gdca else 0
         trades = metrics.get('total_trades', 0) if is_gdca else 'N/A'
+        
+        # Date range for header
+        bt_start = metrics.get('backtest_start')
+        bt_end = metrics.get('backtest_end')
+        date_range_text = ""
+        if bt_start and bt_end:
+            date_range_text = f" • {bt_start} to {bt_end}"
+        elif bt_start:
+            date_range_text = f" • From {bt_start}"
+        elif bt_end:
+            date_range_text = f" • Until {bt_end}"
         
         profit_class = 'green' if profit >= 0 else 'red'
         
@@ -1312,7 +1387,7 @@ def run_backtest():
 <body>
     <div class="header">
         <h1>{strategy_name}</h1>
-        <span class="subtitle">BTC/USD Backtest Results</span>
+        <span class="subtitle">BTC/USD Backtest Results{date_range_text}</span>
     </div>
     
     <div class="main-container">
@@ -2201,17 +2276,41 @@ def run_backtest():
         'std_dca_max_drawdown': std_dca_max_dd_pct
     }
     
-    # Generate GDCA HTML
-    gdca_html = generate_strategy_html(
-        strategy_name="GDCA Strategy",
-        strategy_color="#3b82f6",
-        metrics=gdca_metrics,
+    # ========================================
+    # GENERATE HTML USING JINJA2 TEMPLATES
+    # ========================================
+    
+    from templates import generate_all_reports
+    
+    generate_all_reports(
+        # GDCA metrics
+        total_invested=total_invested,
+        total_equity=total_equity,
+        profit_usd=profit_usd,
+        roi_pct=roi_pct,
+        max_dd_pct=max_dd_pct,
+        total_btc=total_btc,
+        total_trades=total_trades,
+        win_rate_pct=win_rate_pct,
+        # Standard DCA metrics
+        std_dca_invested=std_dca_invested,
+        std_dca_current_value=std_dca_current_value,
+        std_dca_net_profit=std_dca_net_profit,
+        std_dca_roi=std_dca_roi,
+        std_dca_max_dd_pct=std_dca_max_dd_pct,
+        std_dca_btc=std_dca_btc,
+        std_dca_trades=std_dca_trade_count,
+        # Chart data
         json_ohlc=json_ohlc,
         json_equity=json_equity,
+        json_std_dca_equity=json_std_dca_equity,
         json_bnh=json_bnh,
         json_cash=json_cash,
         json_holdings=json_holdings,
         json_markers=json_markers,
+        json_dca_markers=json_dca_markers,
+        json_dca_holdings=json_dca_holdings,
+        json_dca_cash=json_dca_cash,
         json_ema12=json_ema12,
         json_ema26=json_ema26,
         json_ribbons=json_ribbons,
@@ -2224,55 +2323,7 @@ def run_backtest():
         json_ma_buy=json_ma_buy,
         json_ma_strong_buy=json_ma_strong_buy,
         json_ma_long=json_ma_long,
-        is_gdca=True
     )
-    
-    with open('gdca_result.html', 'w', encoding='utf-8') as f:
-        f.write(gdca_html)
-    print("Generated: gdca_result.html")
-    
-    # Generate DCA HTML
-    dca_html = generate_strategy_html(
-        strategy_name="Standard DCA",
-        strategy_color="#8b5cf6",
-        metrics=dca_metrics,
-        json_ohlc=json_ohlc,
-        json_equity=json_std_dca_equity,
-        json_bnh=json_bnh,
-        json_cash="[]",
-        json_holdings="[]",
-        json_markers="[]",
-        json_ema12=json_ema12,
-        json_ema26=json_ema26,
-        json_ribbons=json_ribbons,
-        json_ribbons_past=json_ribbons_past,
-        json_future=json_future,
-        json_past=json_past,
-        json_ma_short=json_ma_short,
-        json_ma_strong_sell=json_ma_strong_sell,
-        json_ma_sell=json_ma_sell,
-        json_ma_buy=json_ma_buy,
-        json_ma_strong_buy=json_ma_strong_buy,
-        json_ma_long=json_ma_long,
-        is_gdca=False
-    )
-    
-    with open('dca_result.html', 'w', encoding='utf-8') as f:
-        f.write(dca_html)
-    print("Generated: dca_result.html")
-    
-    # Generate Comparison HTML
-    comparison_html = generate_comparison_html(
-        gdca_metrics=gdca_metrics,
-        dca_metrics=dca_metrics,
-        json_equity_gdca=json_equity,
-        json_equity_dca=json_std_dca_equity,
-        json_bnh=json_bnh
-    )
-    
-    with open('comparison_result.html', 'w', encoding='utf-8') as f:
-        f.write(comparison_html)
-    print("Generated: comparison_result.html")
 
 
 

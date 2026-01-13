@@ -1,415 +1,497 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>MYC GDCA | Strategy Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | GRAPH·MYC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --color-bg-primary: #0a0a0f;
+            --color-bg-secondary: #111827;
+            --color-bg-card: rgba(30, 35, 50, 0.6);
+            --color-text-primary: #e1e5eb;
+            --color-text-secondary: #9ca3af;
+            --color-text-muted: #6b7280;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --color-accent-gdca: #3b82f6;
+            --color-accent-dca: #8b5cf6;
+            --color-success: #10b981;
+            --color-danger: #ef4444;
+            --color-warning: #f59e0b;
         }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%); color: var(--color-text-primary); min-height: 100vh; line-height: 1.5; }
+        .header { background: linear-gradient(180deg, rgba(20, 20, 35, 0.98) 0%, rgba(15, 15, 25, 0.95) 100%); border-bottom: 1px solid var(--color-border); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(20px); }
+        .header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, var(--color-accent-gdca) 20%, var(--color-accent-dca) 50%, var(--color-accent-gdca) 80%, transparent 100%); }
+        .header-inner { max-width: 1600px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .header-left { display: flex; align-items: center; gap: 24px; }
+        .logo { display: flex; align-items: center; gap: 2px; text-decoration: none; }
+        .logo-text { font-weight: 800; font-size: 22px; letter-spacing: 2px; }
+        .logo-graph { background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .logo-dot { color: var(--color-accent-gdca); font-size: 26px; margin: 0 2px; }
+        .logo-myc { background: linear-gradient(180deg, #8b8b8b 0%, #5a5a5a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav { display: flex; align-items: center; gap: 4px; }
+        .nav-link { color: var(--color-text-muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 8px 14px; border-radius: 8px; transition: all 0.2s ease; }
+        .nav-link:hover { color: var(--color-text-primary); background: rgba(255, 255, 255, 0.05); }
+        .nav-link.active { color: var(--color-accent-gdca); background: rgba(59, 130, 246, 0.1); }
+        .nav-divider { width: 1px; height: 20px; background: var(--color-border); margin: 0 8px; }
+        .page-badge { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--color-border); border-radius: 20px; font-size: 12px; }
+        .page-badge-icon { font-size: 14px; }
+        .page-badge-text { color: var(--color-text-secondary); font-weight: 500; }
+        .page-badge-accent { color: var(--color-accent-gdca); font-weight: 600; }
+        .header-stats { display: flex; align-items: center; gap: 20px; }
+        .header-stat { text-align: right; }
+        .header-stat-label { font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .header-stat-value { font-size: 14px; font-weight: 600; }
+        .header-stat-value.positive { color: var(--color-success); }
+        .header-stat-value.negative { color: var(--color-danger); }
+        .main-content { max-width: 1600px; margin: 0 auto; padding: 20px 24px; }
+        .footer { margin-top: 60px; padding: 40px 24px; background: linear-gradient(180deg, transparent 0%, rgba(10, 10, 15, 0.5) 100%); border-top: 1px solid var(--color-border); }
+        .footer-inner { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .footer-logo { display: flex; align-items: center; gap: 3px; }
+        .footer-logo .logo-text { font-size: 28px; letter-spacing: 3px; font-weight: 800; }
+        .footer-logo .logo-graph { background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .footer-logo .logo-dot { font-size: 32px; color: var(--color-accent-gdca); }
+        .footer-logo .logo-myc { background: linear-gradient(180deg, #8b8b8b 0%, #5a5a5a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .footer-tagline { color: var(--color-text-muted); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+        .footer-links { display: flex; gap: 24px; }
+        .footer-link { color: var(--color-text-muted); text-decoration: none; font-size: 13px; transition: color 0.2s ease; }
+        .footer-link:hover { color: var(--color-accent-gdca); }
+        .footer-divider { width: 80px; height: 1px; background: linear-gradient(90deg, transparent, var(--color-border), transparent); }
+        .footer-powered { color: var(--color-text-muted); font-size: 11px; display: flex; align-items: center; gap: 6px; }
+        .footer-powered svg { width: 12px; height: 12px; fill: currentColor; }
+        .text-success { color: var(--color-success); }
+        .text-danger { color: var(--color-danger); }
+        .text-warning { color: var(--color-warning); }
+        .text-muted { color: var(--color-text-muted); }
+        .card { background: var(--color-bg-card); backdrop-filter: blur(20px); border: 1px solid var(--color-border); border-radius: 16px; padding: 20px; }
+/* Dashboard Hero */
+.hero {
+text-align: center;
+padding: 60px 20px;
+margin-bottom: 40px;
+}
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #0a0a0f 0%, #111827 100%);
-            color: #e1e5eb;
-            min-height: 100vh;
-            padding: 40px 24px;
-        }
+.hero-title {
+font-size: 48px;
+font-weight: 800;
+margin-bottom: 16px;
+letter-spacing: 4px;
+}
 
-        a {
-            text-decoration: none;
-            color: inherit;
-            display: block;
-            height: 100%;
-        }
+.hero-graph {
+background: linear-gradient(180deg, #ffffff 0%, #a0a0a0 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+.hero-dot {
+color: var(--color-accent-gdca);
+animation: pulse-glow 2s ease-in-out infinite;
+}
 
-        .header {
-            margin-bottom: 60px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
+.hero-myc {
+background: linear-gradient(180deg, #8b8b8b 0%, #5a5a5a 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
 
-        .header-content h1 {
-            font-size: 32px;
-            font-weight: 700;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
-        }
+.hero-subtitle {
+color: var(--color-text-muted);
+font-size: 14px;
+letter-spacing: 3px;
+text-transform: uppercase;
+margin-bottom: 12px;
+}
 
-        .header-content p {
-            color: #9ca3af;
-            font-size: 14px;
-        }
+.hero-description {
+color: var(--color-text-secondary);
+font-size: 16px;
+max-width: 600px;
+margin: 0 auto;
+}
 
-        .last-update {
-            font-size: 12px;
-            color: #6b7280;
-            background: rgba(255, 255, 255, 0.03);
-            padding: 6px 12px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
+/* Strategy Cards */
+.strategies-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+gap: 24px;
+margin-bottom: 40px;
+}
 
-        .section {
-            margin-bottom: 60px;
-        }
+.strategy-card {
+position: relative;
+transition: all 0.3s ease;
+cursor: pointer;
+text-decoration: none;
+color: inherit;
+display: block;
+}
 
-        .section-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
+.strategy-card:hover {
+transform: translateY(-6px);
+box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+}
 
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #e1e5eb;
-        }
+.strategy-card.gdca {
+border-top: 4px solid var(--color-accent-gdca);
+}
 
-        .section-line {
-            flex-grow: 1;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.05);
-        }
+.strategy-card.dca {
+border-top: 4px solid var(--color-accent-dca);
+}
 
-        .grid {
-            display: grid;
-            gap: 24px;
-        }
+.strategy-card::after {
+content: '→';
+position: absolute;
+right: 20px;
+top: 20px;
+font-size: 20px;
+color: var(--color-text-muted);
+transition: all 0.3s ease;
+}
 
-        .grid-cols-2 {
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        }
+.strategy-card:hover::after {
+transform: translateX(5px);
+color: var(--color-text-primary);
+}
 
-        .grid-cols-3 {
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        }
+.strategy-header {
+display: flex;
+align-items: center;
+gap: 12px;
+margin-bottom: 24px;
+}
 
-        /* Card Styles */
-        .card {
-            background: rgba(30, 35, 50, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            padding: 24px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
+.strategy-icon {
+font-size: 32px;
+}
 
-        .card:hover {
-            transform: translateY(-4px);
-            background: rgba(36, 41, 58, 0.6);
-            border-color: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-        }
+.strategy-info h3 {
+font-size: 18px;
+font-weight: 600;
+margin-bottom: 4px;
+}
 
-        /* Card Header */
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
-        }
+.strategy-info h3.gdca { color: var(--color-accent-gdca); }
+.strategy-info h3.dca { color: var(--color-accent-dca); }
 
-        .card-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
+.strategy-info p {
+color: var(--color-text-muted);
+font-size: 12px;
+}
 
-        .status-badge {
-            font-size: 11px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+.strategy-metrics {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 16px;
+}
 
-        .status-active {
-            background: rgba(16, 185, 129, 0.1);
-            color: #10b981;
-        }
+.metric {
+background: rgba(255, 255, 255, 0.03);
+border-radius: 10px;
+padding: 12px;
+}
 
-        .status-benchmark {
-            background: rgba(107, 114, 128, 0.1);
-            color: #9ca3af;
-        }
+.metric-label {
+font-size: 10px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+margin-bottom: 4px;
+}
 
-        .status-beta {
-            background: rgba(245, 158, 11, 0.1);
-            color: #f59e0b;
-        }
+.metric-value {
+font-size: 18px;
+font-weight: 600;
+}
 
-        /* Card Content */
-        .card-title {
-            font-size: 20px;
-            font-weight: 600;
-            color: #f3f4f6;
-            margin-bottom: 8px;
-        }
+.strategy-footer {
+margin-top: 20px;
+padding-top: 16px;
+border-top: 1px solid var(--color-border);
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
 
-        .card-desc {
-            color: #9ca3af;
-            font-size: 14px;
-            line-height: 1.5;
-            margin-bottom: 24px;
-            flex-grow: 1;
-        }
+.view-btn {
+font-size: 12px;
+font-weight: 500;
+color: var(--color-text-muted);
+transition: color 0.2s ease;
+}
 
-        /* Metrics Preview (Mini stats in card) */
-        .card-metrics {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+.strategy-card:hover .view-btn {
+color: var(--color-text-primary);
+}
 
-        .mini-metric {
-            display: flex;
-            flex-direction: column;
-        }
+.performance-badge {
+font-size: 11px;
+font-weight: 600;
+padding: 4px 10px;
+border-radius: 12px;
+background: rgba(16, 185, 129, 0.15);
+color: var(--color-success);
+}
 
-        .mini-label {
-            font-size: 10px;
-            color: #6b7280;
-            text-transform: uppercase;
-        }
+.performance-badge.negative {
+background: rgba(239, 68, 68, 0.15);
+color: var(--color-danger);
+}
 
-        .mini-value {
-            font-size: 14px;
-            font-weight: 600;
-            color: #d1d5db;
-        }
+/* Quick Actions */
+.quick-actions {
+margin-bottom: 40px;
+}
 
-        /* Button */
-        .btn-link {
-            font-size: 13px;
-            font-weight: 500;
-            color: #3b82f6;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+.quick-actions h2 {
+font-size: 14px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 1px;
+margin-bottom: 16px;
+}
 
-        .card:hover .btn-link {
-            color: #60a5fa;
-        }
+.actions-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 12px;
+}
 
-        /* Color Themes */
-        .theme-gdca .card-icon {
-            color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
-            border-color: rgba(59, 130, 246, 0.2);
-        }
+.action-card {
+display: flex;
+align-items: center;
+gap: 12px;
+padding: 16px;
+background: rgba(255, 255, 255, 0.02);
+border: 1px solid var(--color-border);
+border-radius: 12px;
+text-decoration: none;
+color: inherit;
+transition: all 0.2s ease;
+}
 
-        .theme-dca .card-icon {
-            color: #8b5cf6;
-            background: rgba(139, 92, 246, 0.1);
-            border-color: rgba(139, 92, 246, 0.2);
-        }
+.action-card:hover {
+background: rgba(255, 255, 255, 0.05);
+border-color: var(--color-accent-gdca);
+}
 
-        .theme-comparison .card-icon {
-            color: #ec4899;
-            background: rgba(236, 72, 153, 0.1);
-            border-color: rgba(236, 72, 153, 0.2);
-        }
+.action-icon {
+font-size: 24px;
+}
 
-        .footer {
-            text-align: center;
-            color: #4b5563;
-            font-size: 12px;
-            margin-top: 80px;
-        }
+.action-info h4 {
+font-size: 13px;
+font-weight: 500;
+margin-bottom: 2px;
+}
+
+.action-info p {
+font-size: 11px;
+color: var(--color-text-muted);
+}
+
+/* Stats Overview */
+.stats-overview {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+gap: 16px;
+margin-bottom: 40px;
+}
+
+.stat-card {
+background: rgba(255, 255, 255, 0.02);
+border: 1px solid var(--color-border);
+border-radius: 12px;
+padding: 20px;
+text-align: center;
+}
+
+.stat-value {
+font-size: 28px;
+font-weight: 700;
+margin-bottom: 4px;
+}
+
+.stat-label {
+font-size: 11px;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+}
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <header class="header">
-            <div class="header-content">
-                <h1>Strategy Dashboard</h1>
-                <p>Performance tracking and backtest analytics</p>
-            </div>
-            <div class="last-update">
-                System Status: Online
-            </div>
-        </header>
-
-        <!-- Analytics Section -->
-        <div class="section">
-            <div class="section-header">
-                <span class="section-title">Analytics & Comparison</span>
-                <div class="section-line"></div>
-            </div>
-            <div class="grid grid-cols-2">
-                <!-- Comparison Report -->
-                <a href="./comparison_result.html">
-                    <div class="card theme-comparison">
-                        <div class="card-header">
-                            <div class="card-icon">⚖️</div>
-                            <span class="status-badge status-active">Analysis</span>
-                        </div>
-                        <h3 class="card-title">Strategy Comparison</h3>
-                        <p class="card-desc">Comprehensive side-by-side analysis of GDCA vs Standard DCA. Compare return
-                            on investment, drawdown, and risk-adjusted metrics.</p>
-                        <div class="btn-link">View Analysis →</div>
-                    </div>
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-left">
+                <a href="./index.html" class="logo">
+                    <span class="logo-text logo-graph">G R A P H</span>
+                    <span class="logo-dot"> . </span>
+                    <span class="logo-text logo-myc">M Y C</span>
                 </a>
+                <nav class="nav">
+                    <a href="./index.html" class="nav-link active">Dashboard</a>
+                    <a href="./gdca_result.html" class="nav-link ">GDCA</a>
+                    <a href="./dca_result.html" class="nav-link ">Standard DCA</a>
+                    <a href="./comparison_result.html" class="nav-link ">Compare</a>
+                </nav>
             </div>
         </div>
+    </header>
+    <main class="main-content">
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-subtitle">Quantitative Trading Research</div>
+    <h1 class="hero-title">
+        <span class="hero-graph">GRAPH</span>
+        <span class="hero-dot">·</span>
+        <span class="hero-myc">MYC</span>
+    </h1>
+    <p class="hero-description">
+        Advanced DCA strategy backtest results for BTC/USD. Compare GDCA (Golden-Ratio DCA)
+        against Standard DCA to find the optimal accumulation strategy.
+    </p>
+</section>
 
-        <!-- Active Strategies Section -->
-        <div class="section">
-            <div class="section-header">
-                <span class="section-title">Active Strategies</span>
-                <div class="section-line"></div>
-            </div>
-            <div class="grid grid-cols-3">
-                <!-- GDCA Strategy -->
-                <a href="./gdca_result.html">
-                    <div class="card theme-gdca">
-                        <div class="card-header">
-                            <div class="card-icon">📈</div>
-                            <span class="status-badge status-active">Live</span>
-                        </div>
-                        <h3 class="card-title">GDCA Strategy</h3>
-                        <p class="card-desc">Gradient Dollar Cost Averaging. Uses moving average ribbons to dynamically
-                            adjust position sizing based on market trend.</p>
-                        <div class="card-metrics">
-                            <div class="mini-metric">
-                                <span class="mini-label">Type</span>
-                                <span class="mini-value">Trend Following</span>
-                            </div>
-                            <div class="mini-metric">
-                                <span class="mini-label">Risk</span>
-                                <span class="mini-value">Moderate</span>
-                            </div>
-                        </div>
-                        <div class="btn-link">View Report →</div>
-                    </div>
-                </a>
+<!-- Stats Overview -->
+<section class="stats-overview">
+    <div class="stat-card">
+        <div class="stat-value">$380,000</div>
+        <div class="stat-label">Total Invested</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value text-success">+20.4%</div>
+        <div class="stat-label">GDCA ROI</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value text-success">+46.8%</div>
+        <div class="stat-label">Standard DCA ROI</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">123</div>
+        <div class="stat-label">Total Trades</div>
+    </div>
+</section>
 
-                <!-- Placeholder for Future Strategy -->
-                <!-- 
-                <div class="card" style="opacity: 0.5; cursor: default;">
-                    <div class="card-header">
-                        <div class="card-icon">🔒</div>
-                        <span class="status-badge status-beta">Coming Soon</span>
-                    </div>
-                    <h3 class="card-title">Momentum Alpha</h3>
-                    <p class="card-desc">High-frequency momentum strategy currently under development.</p>
-                </div> 
-                -->
+<!-- Strategy Cards -->
+<section class="strategies-grid">
+    <a href="./gdca_result.html" class="card strategy-card gdca">
+        <div class="strategy-header">
+            <span class="strategy-icon">📈</span>
+            <div class="strategy-info">
+                <h3 class="gdca">GDCA Strategy</h3>
+                <p>Golden-Ratio Dollar Cost Average</p>
             </div>
         </div>
-
-        <!-- Benchmarks Section -->
-        <div class="section">
-            <div class="section-header">
-                <span class="section-title">Benchmarks</span>
-                <div class="section-line"></div>
+        <div class="strategy-metrics">
+            <div class="metric">
+                <div class="metric-label">Invested</div>
+                <div class="metric-value">$380,000</div>
             </div>
-            <div class="grid grid-cols-3">
-                <!-- Standard DCA -->
-                <a href="./dca_result.html">
-                    <div class="card theme-dca">
-                        <div class="card-header">
-                            <div class="card-icon">📅</div>
-                            <span class="status-badge status-benchmark">Baseline</span>
-                        </div>
-                        <h3 class="card-title">Standard DCA</h3>
-                        <p class="card-desc">Fixed-schedule investment strategy. Used as the baseline performance
-                            benchmark for all active strategies.</p>
-                        <div class="btn-link">View Report →</div>
-                    </div>
-                </a>
+            <div class="metric">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">$457,494</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value text-success">$77,494</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value text-danger">-19.6%</div>
             </div>
         </div>
+        <div class="strategy-footer">
+            <span class="view-btn">View Details</span>
+            <span class="performance-badge ">
+                +20.4% ROI
+            </span>
+        </div>
+    </a>
 
-        <div class="footer">
-            <div class="brand">
-                <span class="creator">G R A P H</span>
-                <span class="divider"></span>
-                <span class="project-name">M Y C</span>
+    <a href="./dca_result.html" class="card strategy-card dca">
+        <div class="strategy-header">
+            <span class="strategy-icon">📊</span>
+            <div class="strategy-info">
+                <h3 class="dca">Standard DCA</h3>
+                <p>Traditional Dollar Cost Average</p>
             </div>
-            <div class="system-info">
+        </div>
+        <div class="strategy-metrics">
+            <div class="metric">
+                <div class="metric-label">Invested</div>
+                <div class="metric-value">$380,000</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Current Value</div>
+                <div class="metric-value">$557,895</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Net Profit</div>
+                <div class="metric-value text-success">$177,895</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Max Drawdown</div>
+                <div class="metric-value text-danger">-32.1%</div>
+            </div>
+        </div>
+        <div class="strategy-footer">
+            <span class="view-btn">View Details</span>
+            <span class="performance-badge ">
+                +46.8% ROI
+            </span>
+        </div>
+    </a>
+</section>
+
+<!-- Quick Actions -->
+<section class="quick-actions">
+    <h2>Quick Actions</h2>
+    <div class="actions-grid">
+        <a href="./comparison_result.html" class="action-card">
+            <span class="action-icon">🔄</span>
+            <div class="action-info">
+                <h4>Compare Strategies</h4>
+                <p>Side-by-side analysis</p>
+            </div>
+        </a>
+        <a href="./gdca_result.html" class="action-card">
+            <span class="action-icon">📈</span>
+            <div class="action-info">
+                <h4>GDCA Charts</h4>
+                <p>Interactive price charts</p>
+            </div>
+        </a>
+        <a href="./dca_result.html" class="action-card">
+            <span class="action-icon">📊</span>
+            <div class="action-info">
+                <h4>DCA Charts</h4>
+                <p>Standard DCA analysis</p>
+            </div>
+        </a>
+    </div>
+</section>
+    </main>
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-tagline">Quantitative Trading Research</div>
+            <div class="footer-links">
+                <a href="./index.html" class="footer-link">Dashboard</a>
+                <a href="./gdca_result.html" class="footer-link">GDCA Strategy</a>
+                <a href="./dca_result.html" class="footer-link">Standard DCA</a>
+                <a href="./comparison_result.html" class="footer-link">Compare</a>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-powered">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
                 Powered by Nautilus Trader
             </div>
         </div>
-    </div>
-
-    <style>
-        .footer {
-            margin-top: 80px;
-            text-align: center;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding-top: 32px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            margin-bottom: 12px;
-            font-weight: 700;
-            letter-spacing: 2px;
-        }
-
-        .project-name {
-            background: linear-gradient(90deg, #fff, #9ca3af);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 14px;
-        }
-
-        .creator {
-            color: #4b5563;
-            font-size: 12px;
-        }
-
-        .divider {
-            width: 4px;
-            height: 4px;
-            background: #4b5563;
-            border-radius: 50%;
-        }
-
-        .system-info {
-            color: #4b5563;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-        }
-    </style>
+    </footer>
 </body>
-
 </html>
