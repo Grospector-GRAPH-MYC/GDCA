@@ -260,6 +260,45 @@ color: var(--color-text-muted);
 text-transform: uppercase;
 letter-spacing: 0.5px;
 }
+
+/* Index Page Responsive Styles */
+@media (max-width: 768px) {
+    .hero { padding: 40px 16px; margin-bottom: 24px; }
+    .hero-title { font-size: 32px; letter-spacing: 2px; }
+    .hero-subtitle { font-size: 12px; letter-spacing: 2px; }
+    .hero-description { font-size: 14px; }
+    .strategies-grid { grid-template-columns: 1fr; gap: 16px; }
+    .strategy-card::after { right: 16px; top: 16px; font-size: 16px; }
+    .strategy-header { margin-bottom: 16px; }
+    .strategy-icon { font-size: 28px; }
+    .strategy-info h3 { font-size: 16px; }
+    .strategy-metrics { gap: 10px; }
+    .metric { padding: 10px; }
+    .metric-value { font-size: 15px; }
+    .metric-label { font-size: 9px; }
+    .strategy-footer { margin-top: 14px; padding-top: 12px; flex-wrap: wrap; gap: 8px; }
+    .performance-badge { font-size: 10px; }
+    .stats-overview { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .stat-card { padding: 14px; }
+    .stat-value { font-size: 20px; }
+    .stat-label { font-size: 10px; }
+    .actions-grid { grid-template-columns: 1fr; gap: 10px; }
+    .action-card { padding: 14px; }
+    .action-icon { font-size: 20px; }
+    .action-info h4 { font-size: 12px; }
+    .quick-actions h2 { font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+    .hero { padding: 30px 12px; }
+    .hero-title { font-size: 26px; letter-spacing: 1px; }
+    .hero-subtitle { font-size: 10px; margin-bottom: 8px; }
+    .hero-description { font-size: 13px; padding: 0 8px; }
+    .strategy-metrics { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .metric-value { font-size: 13px; word-break: break-all; }
+    .stats-overview { grid-template-columns: 1fr 1fr; }
+    .stat-value { font-size: 16px; word-break: break-all; }
+}
 {% endblock %}
 
 {% block content %}

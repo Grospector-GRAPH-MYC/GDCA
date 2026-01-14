@@ -932,6 +932,19 @@ def run_backtest():
     # 1. Prepare Data for Regression (Drop NaNs)
     df_reg = df_bars.dropna(subset=['MA_Base', 'MA_of_MA']).copy()
     
+    # Helper for Minification
+    def compact_json(data, precision=2):
+        """Serialize data to compact JSON with reduced precision."""
+        def round_floats(obj):
+            if isinstance(obj, float):
+                return round(obj, precision)
+            if isinstance(obj, dict):
+                return {k: round_floats(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [round_floats(x) for x in obj]
+            return obj
+        return json.dumps(round_floats(data), separators=(',', ':'))
+
     # Function to get slope/intercept
     def get_log_linear_params(series_y):
         # Time as independent variable (seconds)
@@ -1015,7 +1028,7 @@ def run_backtest():
             'buy': interpolate_zone(p_ma_buy, p_ma_strong_buy),
             'long': interpolate_zone(p_ma_strong_buy, p_ma_long)
         }
-        json_ribbons_past = json.dumps(ribbons_past_payload)
+        json_ribbons_past = compact_json(ribbons_past_payload, precision=2)
     else:
         # Fallback if regression fails
         json_ribbons_past = "null"
@@ -1085,31 +1098,31 @@ def run_backtest():
         'buy': ribbon_buy,
         'long': ribbon_long
     }
-    json_ribbons = json.dumps(ribbons_payload)
-    json_future = json.dumps(future_data)
-    json_past = json.dumps(past_data)
+    json_ribbons = compact_json(ribbons_payload, precision=2)
+    json_future = compact_json(future_data, precision=2)
+    json_past = compact_json(past_data, precision=2)
 
     # Serialize
-    json_ohlc = json.dumps(ohlc_data)
-    json_ema12 = json.dumps(ema12_data)
-    json_ema26 = json.dumps(ema26_data)
-    json_markers = json.dumps(markers)
-    json_equity = json.dumps(equity_data)
-    json_bnh = json.dumps(bnh_data)
-    json_cash = json.dumps(cash_data) # Export Cash Series
-    json_holdings = json.dumps(holdings_data) # Export Holdings Series
-    json_std_dca_equity = json.dumps(std_dca_equity_data) # Export Standard DCA Equity Series
-    json_dca_markers = json.dumps(std_dca_markers) # Export DCA Markers
-    json_dca_holdings = json.dumps(std_dca_holdings_data) # Export DCA Holdings
-    json_dca_cash = json.dumps(std_dca_cash_data) # Export DCA Cash
+    json_ohlc = compact_json(ohlc_data, precision=2)
+    json_ema12 = compact_json(ema12_data, precision=2)
+    json_ema26 = compact_json(ema26_data, precision=2)
+    json_markers = compact_json(markers, precision=2)
+    json_equity = compact_json(equity_data, precision=2)
+    json_bnh = compact_json(bnh_data, precision=2)
+    json_cash = compact_json(cash_data, precision=2) # Export Cash Series
+    json_holdings = compact_json(holdings_data, precision=4) # Export Holdings Series
+    json_std_dca_equity = compact_json(std_dca_equity_data, precision=2) # Export Standard DCA Equity Series
+    json_dca_markers = compact_json(std_dca_markers, precision=2) # Export DCA Markers
+    json_dca_holdings = compact_json(std_dca_holdings_data, precision=4) # Export DCA Holdings
+    json_dca_cash = compact_json(std_dca_cash_data, precision=2) # Export DCA Cash
 
     
-    json_ma_short = json.dumps(ma_short_data)
-    json_ma_strong_sell = json.dumps(ma_strong_sell_data)
-    json_ma_sell = json.dumps(ma_sell_data)
-    json_ma_buy = json.dumps(ma_buy_data)
-    json_ma_strong_buy = json.dumps(ma_strong_buy_data)
-    json_ma_long = json.dumps(ma_long_data)
+    json_ma_short = compact_json(ma_short_data, precision=2)
+    json_ma_strong_sell = compact_json(ma_strong_sell_data, precision=2)
+    json_ma_sell = compact_json(ma_sell_data, precision=2)
+    json_ma_buy = compact_json(ma_buy_data, precision=2)
+    json_ma_strong_buy = compact_json(ma_strong_buy_data, precision=2)
+    json_ma_long = compact_json(ma_long_data, precision=2)
 
     # Prepare metrics for JS
     metrics_payload = {
@@ -1131,7 +1144,7 @@ def run_backtest():
         "backtest_start": str(start_ts_sim.date()) if start_ts_sim else None,
         "backtest_end": str(end_ts_sim.date()) if end_ts_sim else None
     }
-    json_metrics = json.dumps(metrics_payload)
+    json_metrics = compact_json(metrics_payload, precision=2)
     
     # ========================================
     # HTML GENERATORS

@@ -169,6 +169,42 @@ margin-bottom: 4px;
 
 .tp-label { color: var(--color-text-muted); }
 .tp-value { font-weight: 500; }
+
+/* Strategy Page Responsive Styles */
+@media (max-width: 1024px) {
+    .strategy-layout { grid-template-columns: 250px 1fr; height: auto; min-height: calc(100vh - 140px); }
+    .chart-wrapper.price { min-height: 400px; }
+    .chart-wrapper.equity { min-height: 200px; }
+}
+
+@media (max-width: 768px) {
+    .strategy-layout { grid-template-columns: 1fr; gap: 16px; height: auto; max-width: 100vw; }
+    .metrics-panel { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+    .metric-card { flex: 1 1 calc(50% - 5px); min-width: 120px; padding: 12px; }
+    .metric-label { font-size: 10px; }
+    .metric-value { font-size: 16px; }
+    .metric-sub { font-size: 11px; }
+    .charts-container { height: auto; min-height: unset; max-width: 100vw; overflow: hidden; }
+    .chart-wrapper { max-width: 100%; overflow: hidden; }
+    .chart-wrapper.price { min-height: 350px; flex: none; }
+    .chart-wrapper.equity { min-height: 200px; flex: none; }
+    #chart-price, #chart-equity { max-width: 100% !important; }
+    .chart-header { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+    .chart-title { font-size: 12px; }
+    .chart-controls { flex-wrap: wrap; gap: 6px; }
+    .btn { padding: 5px 10px; font-size: 11px; }
+    .tooltip-panel { min-width: 150px; font-size: 11px; padding: 8px 10px; left: 8px; }
+}
+
+@media (max-width: 480px) {
+    .metric-card { flex: 1 1 calc(50% - 5px); }
+    .metric-value { font-size: 14px; }
+    .chart-wrapper.price { min-height: 280px; }
+    .chart-wrapper.equity { min-height: 160px; }
+    .chart-controls { width: 100%; justify-content: center; }
+    .btn { flex: 1; text-align: center; }
+    .tooltip-panel { top: 40px; }
+}
 {% endblock %}
 
 {% block content %}

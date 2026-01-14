@@ -37,6 +37,8 @@ display: grid;
 grid-template-columns: 1fr 1fr;
 gap: 24px;
 margin-bottom: 24px;
+padding-top: 20px;
+margin-top: 10px;
 }
 
 .strategy-card {
@@ -72,6 +74,17 @@ align-items: center;
 gap: 6px;
 box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
+
+.card-chart {
+margin-top: 16px;
+background: rgba(15, 18, 25, 0.6);
+border-radius: 10px;
+overflow: hidden;
+height: 180px;
+position: relative;
+}
+
+#chart-gdca, #chart-dca { width: 100%; height: 100%; }
 
 .strategy-title {
 font-size: 16px;
@@ -183,12 +196,51 @@ margin-bottom: 4px;
 
 .tp-label { color: var(--color-text-muted); }
 .tp-value { font-weight: 500; }
+
+/* Comparison Page Responsive Styles */
+@media (max-width: 768px) {
+    .comparison-grid { 
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 12px;
+    }
+    .comparison-grid .strategy-card {
+        flex: 0 0 85%;
+        scroll-snap-align: start;
+        min-width: 280px;
+    }
+    .charts-row { 
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: auto;
+    }
+    .chart-box { min-height: 250px; }
+    .metrics-grid { gap: 8px; }
+    .metric { padding: 10px; }
+    .metric-value { font-size: 15px; }
+    .metric-label { font-size: 9px; }
+    .strategy-title { font-size: 14px; }
+    .winner-badge { font-size: 10px; padding: 4px 12px; }
+    .overlay-section { height: auto; }
+    #chart-overlay { height: 250px; }
+    .tooltip-panel { min-width: 160px; font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+    .comparison-grid .strategy-card { flex: 0 0 90%; }
+    .metric-value { font-size: 13px; word-break: break-all; }
+    .chart-box { min-height: 200px; }
+}
 {% endblock %}
 
 {% block content %}
 <!-- Comparison Cards -->
 <div class="comparison-grid">
-    <div class="card strategy-card gdca {{ 'winner' if gdca_wins else '' }}">
+    <div class="card strategy-card gdca {{ 'winner' if gdca_wins else '' }}" style="order: {{ 0 if gdca_wins else 1 }}">
         {% if gdca_wins %}
         <div class="winner-badge">🏆 WINNER</div>
         {% endif %}
@@ -221,9 +273,13 @@ margin-bottom: 4px;
                 <div class="metric-value">{{ "{:.4f}".format(gdca_metrics.total_btc) }}</div>
             </div>
         </div>
+        <div class="card-chart">
+            <div id="tooltip-gdca" class="tooltip-panel" style="display:none;"></div>
+            <div id="chart-gdca"></div>
+        </div>
     </div>
 
-    <div class="card strategy-card dca {{ 'winner' if not gdca_wins else '' }}">
+    <div class="card strategy-card dca {{ 'winner' if not gdca_wins else '' }}" style="order: {{ 0 if not gdca_wins else 1 }}">
         {% if not gdca_wins %}
         <div class="winner-badge">🏆 WINNER</div>
         {% endif %}
@@ -256,20 +312,7 @@ margin-bottom: 4px;
                 <div class="metric-value" style="font-size: 13px;">Fixed Daily Buy</div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Individual Charts -->
-<div class="card chart-section">
-    <h3>📈 Individual Performance</h3>
-    <div class="charts-row">
-        <div class="chart-box">
-            <div class="chart-label gdca">GDCA Portfolio</div>
-            <div id="tooltip-gdca" class="tooltip-panel" style="display:none;"></div>
-            <div id="chart-gdca"></div>
-        </div>
-        <div class="chart-box">
-            <div class="chart-label dca">Standard DCA Portfolio</div>
+        <div class="card-chart">
             <div id="tooltip-dca" class="tooltip-panel" style="display:none;"></div>
             <div id="chart-dca"></div>
         </div>
